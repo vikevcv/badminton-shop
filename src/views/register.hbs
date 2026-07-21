@@ -1,0 +1,59 @@
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-6 col-lg-5">
+            <div class="card shadow-sm border-0 rounded-4">
+                <div class="card-body p-4 p-md-5">
+                    <div class="text-center mb-4">
+                        <a href="/" class="text-decoration-none">
+                            <h3 class="fw-bold m-0">LOGO<span class="text-sky">TEST</span></h3>
+                        </a>
+                        <p class="text-muted mt-2 mb-0">Tạo tài khoản mới</p>
+                    </div>
+
+                    {{#if error}}
+                    <div class="alert alert-danger d-flex align-items-center gap-2 py-2" role="alert">
+                        <i class="bi bi-exclamation-circle-fill flex-shrink-0"></i>
+                        <span>{{error}}</span>
+                    </div>
+                    {{/if}}
+
+                    <form action="/register" method="POST">
+                        <div class="mb-3">
+                            <label for="fullName" class="form-label fw-bold">Họ và tên <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-lg" id="fullName" name="fullName" placeholder="Nguyễn Văn A" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="email" class="form-label fw-bold">Email <span class="text-danger">*</span></label>
+                            <input type="email" class="form-control form-control-lg" id="email" name="email" placeholder="your@email.com" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="phone" class="form-label fw-bold">Số điện thoại</label>
+                            <input type="tel" class="form-control form-control-lg" id="phone" name="phone" placeholder="090xxxxxxx">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="password" class="form-label fw-bold">Mật khẩu <span class="text-danger">*</span></label>
+                            <input type="password" class="form-control form-control-lg" id="password" name="password" placeholder="Ít nhất 6 ký tự" minlength="6" required>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="confirmPassword" class="form-label fw-bold">Xác nhận mật khẩu <span class="text-danger">*</span></label>
+                            <input type="password" class="form-control form-control-lg" id="confirmPassword" name="confirmPassword" placeholder="Nhập lại mật khẩu" minlength="6" required>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100 btn-lg fw-bold" style="background-color: var(--primary-sky); border-color: var(--primary-sky);">
+                            ĐĂNG KÝ
+                        </button>
+                    </form>
+
+                    <div class="text-center mt-4">
+                        <span class="text-muted">Đã có tài khoản?</span>
+                        <a href="/login" class="text-decoration-none fw-bold text-sky">Đăng nhập</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

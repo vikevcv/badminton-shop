@@ -1,0 +1,40 @@
+import express from 'express';
+import productRoutes from './product.routes.js';
+import authRoutes from './auth.routes.js';
+import cartRoutes from './cart.routes.js';
+import addressRoutes from './address.routes.js';
+import orderRoutes from './order.routes.js';
+import paymentRoutes from './payment.routes.js';
+import reviewRoutes from './review.routes.js';
+import voucherRoutes from './voucher.routes.js';
+import customerRoutes from './customer.routes.js';
+import brandRoutes from './brand.routes.js';
+import categoryRoutes from './category.routes.js';
+import inventoryRoutes from './inventory.routes.js';
+import webhookRoutes from '../webhook.routes.js';
+import dashboardRoutes from './dashboard.routes.js';
+import userRoutes from './user.routes.js';
+import wishlistRoutes from './wishlist.routes.js';
+import bannerRoutes from './banner.routes.js';
+
+const router = express.Router();
+
+router.use('/products', productRoutes);
+router.use('/auth', authRoutes);
+router.use('/cart', cartRoutes);
+router.use('/addresses', addressRoutes);
+router.use('/orders', orderRoutes);
+router.use('/payments', paymentRoutes);
+router.use('/reviews', reviewRoutes);
+router.use('/vouchers', voucherRoutes);
+router.use('/customer', customerRoutes);
+router.use('/brands', brandRoutes);
+router.use('/categories', categoryRoutes);
+router.use('/inventory', inventoryRoutes);
+router.use('/webhooks', webhookRoutes);
+router.use('/dashboard', dashboardRoutes);
+router.use('/users', userRoutes);
+router.use('/wishlist', wishlistRoutes);
+router.use('/banners', bannerRoutes);
+
+export default router;

@@ -1,0 +1,14 @@
+node_modules/
+npm-debug.log
+logs/
+coverage/
+.git/
+.gitignore
+.dockerignore
+.prettierignore
+.eslintignore
+.env
+.env.test
+.env.production
+README.md
+tests/

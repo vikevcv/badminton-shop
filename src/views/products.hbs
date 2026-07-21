@@ -1,0 +1,219 @@
+<div class="container-fluid p-0">
+    <nav aria-label="breadcrumb" class="bg-light py-3 px-4 mb-4 rounded">
+        <ol class="breadcrumb mb-0">
+            <li class="breadcrumb-item"><a href="/" class="text-decoration-none text-sky">Trang chủ</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Tất cả sản phẩm</li>
+        </ol>
+    </nav>
+
+    <div class="row px-4 px-md-5">
+        <!-- Sidebar Bộ lọc (Bên trái) -->
+        <div class="col-12 col-lg-3 mb-4 mb-lg-0 pe-lg-4">
+            
+            <div class="filter-sidebar bg-white p-3 rounded border">
+                
+                <h5 class="fw-bold mb-3 border-bottom pb-2">
+                    <i class="bi bi-funnel-fill text-sky me-2"></i>Bộ lọc sản phẩm
+                </h5>
+                
+                <!-- 1. Lọc theo Danh mục -->
+                <div class="mb-4">
+                    <h6 class="fw-bold mb-3 text-uppercase" style="font-size: 13px;">Danh mục</h6>
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2"><a href="?category=vot-cau-long" class="text-decoration-none text-dark hover-sky">Vợt cầu lông</a></li>
+                        <li class="mb-2"><a href="?category=giay-cau-long" class="text-decoration-none text-dark hover-sky">Giày cầu lông</a></li>
+                        <li class="mb-2"><a href="?category=ao-cau-long" class="text-decoration-none text-dark hover-sky">Áo cầu lông</a></li>
+                        <li class="mb-2"><a href="?category=quan-cau-long" class="text-decoration-none text-dark hover-sky">Quần cầu lông</a></li>
+                    </ul>
+                </div>
+
+                <!-- 2. Lọc theo Thương hiệu -->
+                <div class="mb-4">
+                    <h6 class="fw-bold mb-3 text-uppercase" style="font-size: 13px;">Thương hiệu</h6>
+                    <div class="d-flex flex-column gap-2">
+                        <div class="form-check">
+                            <input class="form-check-input brand-filter" type="checkbox" value="yonex" id="brandYonex">
+                            <label class="form-check-label" for="brandYonex">Yonex</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input brand-filter" type="checkbox" value="victor" id="brandVictor">
+                            <label class="form-check-label" for="brandVictor">Victor</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input brand-filter" type="checkbox" value="lining" id="brandLining">
+                            <label class="form-check-label" for="brandLining">Lining</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Lọc theo Khoảng giá -->
+                <div class="mb-3">
+                    <h6 class="fw-bold mb-3 text-uppercase" style="font-size: 13px;">Khoảng giá</h6>
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <input type="number" id="minPrice" class="form-control form-control-sm" placeholder="Từ (VNĐ)">
+                        <span>-</span>
+                        <input type="number" id="maxPrice" class="form-control form-control-sm" placeholder="Đến (VNĐ)">
+                    </div>
+                    <button id="btnApplyPrice" class="btn btn-sm btn-outline-secondary w-100 mt-2">Áp dụng giá</button>
+                </div>
+
+                <a href="/products" class="btn btn-sm btn-light text-danger w-100 mt-3 fw-bold border">
+                    XÓA BỘ LỌC
+                </a>
+            </div>
+            
+        </div>
+
+        <!-- Cột hiển thị sản phẩm (Bên phải) -->
+        <div class="col-12 col-lg-9">
+            
+            <!-- Toolbar: Tiêu đề & Sắp xếp -->
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 bg-white p-3 rounded border">
+                <div>
+                    <h3 class="fw-bold m-0 text-uppercase fs-5">Tất cả sản phẩm</h3>
+                    <small class="text-muted">Tìm thấy <span class="fw-bold text-dark">{{products.length}}</span> sản phẩm</small>
+                </div>
+                
+                <div class="d-flex align-items-center mt-3 mt-md-0 gap-2">
+                    <label class="fw-bold text-nowrap" style="font-size: 14px;">Sắp xếp:</label>
+                    <select id="sortSelect" class="form-select form-select-sm" style="width: auto;">
+                        <option value="newest">Hàng mới nhất</option>
+                        <option value="price_asc">Giá: Thấp đến Cao</option>
+                        <option value="price_desc">Giá: Cao đến Thấp</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Lưới Sản Phẩm -->
+            <div class="row g-3">
+                {{#each products}}
+                <div class="col-6 col-md-4 col-xl-3">
+                    <div class="card h-100 product-card rounded-3">
+                        <a href="/product/{{this.slug}}" class="product-img-wrapper text-center">
+                            <img src="{{this.imageUrl}}" class="card-img-top" alt="{{this.name}}">
+                        </a>
+                        <div class="card-body d-flex flex-column text-center p-3">
+                            <small class="text-muted text-uppercase fw-bold mb-1" style="font-size: 11px;">{{this.brand_name}}</small>
+                            <a href="/product/{{this.slug}}" class="text-decoration-none text-dark mb-2">
+                                <h5 class="card-title product-name fw-bold m-0" title="{{this.name}}">{{this.name}}</h5>
+                            </a>
+                            <p class="card-text product-price fw-bold mt-auto mb-0">{{this.formattedPrice}}</p>
+                        </div>
+                    </div>
+                </div>
+                {{/each}}
+                
+                <!-- Xử lý khi không có sản phẩm nào -->
+                {{#unless products.length}}
+                <div class="col-12 text-center py-5 bg-white rounded border">
+                    <i class="bi bi-box-seam text-muted" style="font-size: 48px;"></i>
+                    <p class="mt-3 fw-bold">Không tìm thấy sản phẩm nào phù hợp với bộ lọc.</p>
+                    <a href="/products" class="btn btn-outline-secondary">Xóa bộ lọc</a>
+                </div>
+                {{/unless}}
+            </div>
+            
+            {{#if pagination.totalPages}}
+            <nav aria-label="Page navigation" class="mt-5 d-flex justify-content-center">
+              <ul class="pagination shadow-sm">
+                
+                <!-- Nút Trước -->
+                <li class="page-item {{#unless pagination.hasPrev}}disabled{{/unless}}">
+                  <a class="page-link text-dark" href="#" onclick="goToPage({{pagination.prevPage}}); return false;">&laquo;</a>
+                </li>
+                
+                <!-- Các số trang -->
+                {{#each pagination.pages}}
+                <li class="page-item {{#if this.isCurrent}}active{{/if}}">
+                  <a class="page-link {{#if this.isCurrent}}bg-sky border-sky{{else}}text-dark{{/if}}" 
+                     href="#" onclick="goToPage({{this.page}}); return false;">{{this.page}}</a>
+                </li>
+                {{/each}}
+                
+                <!-- Nút Sau -->
+                <li class="page-item {{#unless pagination.hasNext}}disabled{{/unless}}">
+                  <a class="page-link text-dark" href="#" onclick="goToPage({{pagination.nextPage}}); return false;">&raquo;</a>
+                </li>
+                
+              </ul>
+            </nav>
+            {{/if}}
+
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+
+    // 1. PHỤC HỒI TRẠNG THÁI UI
+    const currentSort = urlParams.get('sort');
+    if (currentSort) {
+        const sortSelect = document.getElementById('sortSelect');
+        if (sortSelect) sortSelect.value = currentSort;
+    }
+
+    const currentMinPrice = urlParams.get('minPrice');
+    const currentMaxPrice = urlParams.get('maxPrice');
+    if (currentMinPrice) document.getElementById('minPrice').value = currentMinPrice;
+    if (currentMaxPrice) document.getElementById('maxPrice').value = currentMaxPrice;
+
+    // Phục hồi NHIỀU checkbox Thương hiệu
+    const currentBrand = urlParams.get('brand');
+    if (currentBrand) {
+        const brandsArray = currentBrand.split(','); // Tách chuỗi thành mảng
+        const brandCheckboxes = document.querySelectorAll('.brand-filter');
+        brandCheckboxes.forEach(cb => {
+            if (brandsArray.includes(cb.value)) cb.checked = true;
+        });
+    }
+
+    // 2. HÀM XỬ LÝ LỌC
+    function applyFilters() {
+        const newUrlParams = new URLSearchParams(window.location.search);
+
+        const sortValue = document.getElementById('sortSelect').value;
+        if (sortValue) newUrlParams.set('sort', sortValue);
+
+        // Lấy tất cả các checkbox Thương hiệu đang được tick
+        const checkedBrands = Array.from(document.querySelectorAll('.brand-filter:checked')).map(cb => cb.value);
+        if (checkedBrands.length > 0) {
+            newUrlParams.set('brand', checkedBrands.join(',')); // Nối lại thành 'yonex,victor'
+        } else {
+            newUrlParams.delete('brand');
+        }
+
+        const minPrice = document.getElementById('minPrice').value;
+        const maxPrice = document.getElementById('maxPrice').value;
+        if (minPrice) newUrlParams.set('minPrice', minPrice);
+        else newUrlParams.delete('minPrice');
+        if (maxPrice) newUrlParams.set('maxPrice', maxPrice);
+        else newUrlParams.delete('maxPrice');
+
+        // Bất cứ khi nào đổi bộ lọc, phải bắt người dùng quay về trang 1
+        newUrlParams.delete('page');
+
+        window.location.search = newUrlParams.toString();
+    }
+
+    // 3. HÀM CHUYỂN TRANG
+    window.goToPage = function(pageNumber) {
+        const newUrlParams = new URLSearchParams(window.location.search);
+        newUrlParams.set('page', pageNumber);
+        window.location.search = newUrlParams.toString();
+    };
+
+    // 4. GẮN SỰ KIỆN
+    const sortSelect = document.getElementById('sortSelect');
+    if (sortSelect) sortSelect.addEventListener('change', applyFilters);
+
+    const btnApplyPrice = document.getElementById('btnApplyPrice');
+    if (btnApplyPrice) btnApplyPrice.addEventListener('click', applyFilters);
+
+    const brandCheckboxes = document.querySelectorAll('.brand-filter');
+    brandCheckboxes.forEach(cb => {
+        cb.addEventListener('change', applyFilters);
+    });
+});
+</script>
