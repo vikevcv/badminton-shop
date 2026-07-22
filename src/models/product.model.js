@@ -1,5 +1,22 @@
 import pool from '../config/database.js';
 
+export const findRelatedProducts = async (productId, categoryId, limit = 4) => {
+  const [rows] = await pool.query(
+    `SELECT p.id, p.name, p.slug,
+            MIN(pv.price) AS price,
+            pi.image_url
+     FROM products p
+     LEFT JOIN product_variants pv ON p.id = pv.product_id AND pv.status = 'active'
+     LEFT JOIN product_images pi ON p.id = pi.product_id AND pi.is_thumbnail = 1
+     WHERE p.category_id = ? AND p.id != ? AND p.status = 'active'
+     GROUP BY p.id, p.name, p.slug, pi.image_url
+     ORDER BY RAND()
+     LIMIT ?`,
+    [categoryId, productId, Number(limit)]
+  );
+  return rows;
+};
+
 export const createProduct = async (data) => {
   const [result] = await pool.execute(
     `INSERT INTO products (category_id, brand_id, name, slug, description, status) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -295,7 +312,7 @@ export const findAllProductsPaginated = async (page = 1, limit = 8) => {
 export const findProductBySlug = async (slug) => {
   const query = `
     SELECT 
-        p.id, p.name, p.slug, p.description, p.status,
+        p.id, p.name, p.slug, p.description, p.status, p.category_id,
         c.name AS category_name, c.slug AS category_slug,
         b.name AS brand_name
     FROM products p

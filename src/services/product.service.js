@@ -4,6 +4,7 @@ import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
 import * as productModel from '../models/product.model.js';
 import * as inventoryModel from '../models/inventory.model.js';
+import * as reviewModel from '../models/review.model.js';
 import { formatVND } from '../helpers/currency.helper.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -126,9 +127,11 @@ export const getProductDetail = async (slug) => {
     throw error;
   }
 
-  const [images, rawVariants] = await Promise.all([
+  const [images, rawVariants, ratingStats, relatedProducts] = await Promise.all([
     productModel.findProductImages(product.id),
-    productModel.findProductVariants(product.id)
+    productModel.findProductVariants(product.id),
+    reviewModel.getRatingStats(product.id),
+    productModel.findRelatedProducts(product.id, product.category_id)
   ]);
 
   const variantMap = new Map();
@@ -163,7 +166,12 @@ export const getProductDetail = async (slug) => {
     ...product,
     formattedDefaultPrice: formatVND(defaultPrice),
     images: images,
-    variants: variants
+    variants: variants,
+    rating_stats: ratingStats,
+    related_products: relatedProducts.map(p => ({
+      ...p,
+      formattedPrice: formatVND(p.price)
+    }))
   };
 };
 

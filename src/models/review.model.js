@@ -67,3 +67,28 @@ export const deleteReview = async (id) => {
   );
   return result.affectedRows > 0;
 };
+
+export const getRatingStats = async (productId) => {
+  const [rows] = await pool.query(
+    `SELECT COUNT(*) AS total_reviews, ROUND(COALESCE(AVG(rating), 0), 1) AS avg_rating,
+            SUM(CASE WHEN rating = 1 THEN 1 ELSE 0 END) AS star_1,
+            SUM(CASE WHEN rating = 2 THEN 1 ELSE 0 END) AS star_2,
+            SUM(CASE WHEN rating = 3 THEN 1 ELSE 0 END) AS star_3,
+            SUM(CASE WHEN rating = 4 THEN 1 ELSE 0 END) AS star_4,
+            SUM(CASE WHEN rating = 5 THEN 1 ELSE 0 END) AS star_5
+     FROM product_reviews WHERE product_id = ? AND deleted_at IS NULL`,
+    [productId]
+  );
+  const row = rows[0];
+  return {
+    avg_rating: Number(row.avg_rating),
+    total_reviews: Number(row.total_reviews),
+    distribution: {
+      1: Number(row.star_1),
+      2: Number(row.star_2),
+      3: Number(row.star_3),
+      4: Number(row.star_4),
+      5: Number(row.star_5),
+    }
+  };
+};
