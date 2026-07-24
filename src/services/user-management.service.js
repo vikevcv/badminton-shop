@@ -76,7 +76,7 @@ export const changeRole = async (id, role) => {
     throw error;
   }
   if (user.role === 'admin') {
-    const error = new Error('Không thể thay đổi vai trò của admin khác');
+    const error = new Error('Không thể thay đổi vai trò của admin');
     error.status = 400;
     throw error;
   }

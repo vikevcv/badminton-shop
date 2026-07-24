@@ -6,10 +6,11 @@ import { fileURLToPath } from 'url';
 import { engine } from 'express-handlebars';
 import cookieParser from 'cookie-parser';
 
-import pool, { testConnection } from './config/database.js';
+import { testConnection } from './config/database.js';
 import { errorHandler } from './middlewares/error.middleware.js';
 import { notFoundHandler } from './middlewares/notFound.middleware.js';
 import { setViewLocals } from './middlewares/auth.middleware.js';
+import { cleanExpired } from './services/refresh-token.service.js';
 import webRoutes from './routes/web.routes.js';
 import apiRoutes from './routes/api/index.js';
 
@@ -72,8 +73,7 @@ app.listen(PORT, () => {
 const CLEANUP_INTERVAL = 60 * 60 * 1000;
 setInterval(async () => {
   try {
-    const { default: refreshTokenModel } = await import('./models/refresh-token.model.js');
-    const cleaned = await refreshTokenModel.cleanExpired();
+    const cleaned = await cleanExpired();
     if (cleaned > 0) {
       console.log(`🧹 Cleaned ${cleaned} expired refresh tokens`);
     }

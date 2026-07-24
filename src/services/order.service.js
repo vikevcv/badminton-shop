@@ -69,128 +69,133 @@ export const createOrder = async (userId, data) => {
     sum + item.quantity * parseFloat(item.price), 0
   );
 
-  const orderCode = generateOrderCode();
+  const MAX_RETRIES = 5;
 
-  const conn = await pool.getConnection();
-  try {
-    await conn.beginTransaction();
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const orderCode = generateOrderCode();
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
 
-    let lockedVoucher = null;
+      let lockedVoucher = null;
 
-    if (voucher_code) {
-      lockedVoucher = await voucherModel.lockByCode(voucher_code, conn);
-      if (!lockedVoucher) {
-        const error = new Error('Mã giảm giá không hợp lệ');
-        error.status = 400;
-        throw error;
+      if (voucher_code) {
+        lockedVoucher = await voucherModel.lockByCode(voucher_code, conn);
+        if (!lockedVoucher) {
+          const error = new Error('Mã giảm giá không hợp lệ');
+          error.status = 400;
+          throw error;
+        }
+
+        const now = new Date();
+        if (lockedVoucher.start_date && new Date(lockedVoucher.start_date) > now) {
+          const error = new Error('Mã giảm giá chưa đến hạn sử dụng');
+          error.status = 400;
+          throw error;
+        }
+        if (lockedVoucher.end_date && new Date(lockedVoucher.end_date) < now) {
+          const error = new Error('Mã giảm giá đã hết hạn');
+          error.status = 400;
+          throw error;
+        }
+        if (lockedVoucher.usage_limit && lockedVoucher.used_count >= lockedVoucher.usage_limit) {
+          const error = new Error('Mã giảm giá đã hết lượt sử dụng');
+          error.status = 400;
+          throw error;
+        }
+        if (subtotal < parseFloat(lockedVoucher.min_order_value)) {
+          const error = new Error(`Đơn hàng tối thiểu ${formatVND(lockedVoucher.min_order_value)} để áp dụng mã này`);
+          error.status = 400;
+          throw error;
+        }
       }
 
-      const now = new Date();
-      if (lockedVoucher.start_date && new Date(lockedVoucher.start_date) > now) {
-        const error = new Error('Mã giảm giá chưa đến hạn sử dụng');
-        error.status = 400;
-        throw error;
-      }
-      if (lockedVoucher.end_date && new Date(lockedVoucher.end_date) < now) {
-        const error = new Error('Mã giảm giá đã hết hạn');
-        error.status = 400;
-        throw error;
-      }
-      if (lockedVoucher.usage_limit && lockedVoucher.used_count >= lockedVoucher.usage_limit) {
-        const error = new Error('Mã giảm giá đã hết lượt sử dụng');
-        error.status = 400;
-        throw error;
-      }
-      if (subtotal < parseFloat(lockedVoucher.min_order_value)) {
-        const error = new Error(`Đơn hàng tối thiểu ${formatVND(lockedVoucher.min_order_value)} để áp dụng mã này`);
-        error.status = 400;
-        throw error;
-      }
-    }
-
-    for (const item of itemsToOrder) {
-      const lockedInventory = await inventoryModel.findByVariantIdForUpdate(item.variant_id, conn);
-      if (!lockedInventory || lockedInventory.quantity < item.quantity) {
-        const error = new Error(`Sản phẩm "${item.product_name}" không đủ hàng`);
-        error.status = 400;
-        throw error;
-      }
-    }
-
-    let discountAmount = 0;
-    let voucherId = null;
-
-    if (lockedVoucher) {
-      voucherId = lockedVoucher.id;
-
-      if (lockedVoucher.discount_type === 'fixed') {
-        discountAmount = parseFloat(lockedVoucher.discount_value);
-      } else {
-        discountAmount = Math.round(subtotal * parseFloat(lockedVoucher.discount_value) / 100);
+      for (const item of itemsToOrder) {
+        const lockedInventory = await inventoryModel.findByVariantIdForUpdate(item.variant_id, conn);
+        if (!lockedInventory || lockedInventory.quantity < item.quantity) {
+          const error = new Error(`Sản phẩm "${item.product_name}" không đủ hàng`);
+          error.status = 400;
+          throw error;
+        }
       }
 
-      if (lockedVoucher.max_discount_amount && discountAmount > parseFloat(lockedVoucher.max_discount_amount)) {
-        discountAmount = parseFloat(lockedVoucher.max_discount_amount);
-      }
-    }
+      let discountAmount = 0;
+      let voucherId = null;
 
-    const finalAmount = subtotal - discountAmount + shipping_fee;
+      if (lockedVoucher) {
+        voucherId = lockedVoucher.id;
 
-    const orderId = await orderModel.createOrder({
-      user_id: userId,
-      voucher_id: voucherId,
-      order_code: orderCode,
-      subtotal,
-      discount_amount: discountAmount,
-      shipping_fee,
-      final_amount: Math.max(finalAmount, 0),
-      receiver_name: data.receiver_name,
-      receiver_phone: data.receiver_phone,
-      receiver_address: data.receiver_address,
-      note: note || null
-    }, conn);
+        if (lockedVoucher.discount_type === 'fixed') {
+          discountAmount = parseFloat(lockedVoucher.discount_value);
+        } else {
+          discountAmount = Math.round(subtotal * parseFloat(lockedVoucher.discount_value) / 100);
+        }
 
-    for (const item of itemsToOrder) {
-      const totalPrice = item.quantity * parseFloat(item.price);
-      await orderModel.createOrderItem(
-        orderId, item.variant_id, item.quantity,
-        parseFloat(item.price), totalPrice,
-        item.metadata, conn
-      );
-
-      const decremented = await inventoryModel.decrementStock(item.variant_id, item.quantity, conn);
-      if (!decremented) {
-        throw new Error(`Sản phẩm "${item.product_name}" không đủ hàng`);
+        if (lockedVoucher.max_discount_amount && discountAmount > parseFloat(lockedVoucher.max_discount_amount)) {
+          discountAmount = parseFloat(lockedVoucher.max_discount_amount);
+        }
       }
 
-      await inventoryModel.logTransaction({
-        variant_id: item.variant_id,
-        transaction_type: 'sale',
-        quantity: -item.quantity,
-        reference_type: 'order',
-        reference_id: orderId,
-        note: `Đơn hàng ${orderCode}`,
-        created_by: userId
+      const finalAmount = subtotal - discountAmount + shipping_fee;
+
+      const orderId = await orderModel.createOrder({
+        user_id: userId,
+        voucher_id: voucherId,
+        order_code: orderCode,
+        subtotal,
+        discount_amount: discountAmount,
+        shipping_fee,
+        final_amount: Math.max(finalAmount, 0),
+        receiver_name: data.receiver_name,
+        receiver_phone: data.receiver_phone,
+        receiver_address: data.receiver_address,
+        note: note || null
       }, conn);
 
-      await cartModel.removeItem(item.id, cart.id, conn);
+      for (const item of itemsToOrder) {
+        const totalPrice = item.quantity * parseFloat(item.price);
+        await orderModel.createOrderItem(
+          orderId, item.variant_id, item.quantity,
+          parseFloat(item.price), totalPrice,
+          item.metadata, conn
+        );
+
+        const decremented = await inventoryModel.decrementStock(item.variant_id, item.quantity, conn);
+        if (!decremented) {
+          throw new Error(`Sản phẩm "${item.product_name}" không đủ hàng`);
+        }
+
+        await inventoryModel.logTransaction({
+          variant_id: item.variant_id,
+          transaction_type: 'sale',
+          quantity: -item.quantity,
+          reference_type: 'order',
+          reference_id: orderId,
+          note: `Đơn hàng ${orderCode}`,
+          created_by: userId
+        }, conn);
+
+        await cartModel.removeItem(item.id, cart.id, conn);
+      }
+
+      if (voucherId) {
+        await voucherModel.incrementUsedCount(voucherId, conn);
+      }
+
+      await customerProfileModel.updateTotalSpent(userId, Math.max(finalAmount, 0), conn);
+
+      await conn.commit();
+      return orderCode;
+    } catch (error) {
+      await conn.rollback();
+      if (error.errno === 1062 && attempt < MAX_RETRIES) {
+        continue;
+      }
+      throw error;
+    } finally {
+      conn.release();
     }
-
-    if (voucherId) {
-      await voucherModel.incrementUsedCount(voucherId, conn);
-    }
-
-    await customerProfileModel.updateTotalSpent(userId, Math.max(finalAmount, 0), conn);
-
-    await conn.commit();
-  } catch (error) {
-    await conn.rollback();
-    throw error;
-  } finally {
-    conn.release();
   }
-
-  return orderCode;
 };
 
 export const getOrders = async (userId, page, limit) => {
@@ -323,10 +328,15 @@ export const updateOrderStatus = async (orderCode, newStatus, changedBy = null, 
 
 export const rollbackOrderResources = async (order, items, conn, userId, transactionType, note) => {
   for (const item of items) {
-    await inventoryModel.findByVariantIdForUpdate(item.variant_id, conn);
+    const lockedInventory = await inventoryModel.findByVariantIdForUpdate(item.variant_id, conn);
+    if (!lockedInventory) {
+      const error = new Error(`Không tìm thấy kho hàng cho biến thể ${item.variant_id}`);
+      error.status = 400;
+      throw error;
+    }
     const added = await inventoryModel.addStock(item.variant_id, item.quantity, conn);
     if (!added) {
-      const error = new Error(`Không tìm thấy kho hàng cho biến thể ${item.variant_id}`);
+      const error = new Error(`Không thể hoàn kho cho biến thể ${item.variant_id}`);
       error.status = 400;
       throw error;
     }
@@ -342,7 +352,12 @@ export const rollbackOrderResources = async (order, items, conn, userId, transac
   }
 
   if (order.voucher_id) {
-    await voucherModel.lockById(order.voucher_id, conn);
+    const lockedVoucher = await voucherModel.lockById(order.voucher_id, conn);
+    if (!lockedVoucher) {
+      const error = new Error('Không tìm thấy voucher');
+      error.status = 400;
+      throw error;
+    }
     await voucherModel.decrementUsedCount(order.voucher_id, conn);
   }
 
