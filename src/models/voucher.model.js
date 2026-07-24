@@ -82,3 +82,11 @@ export const softDelete = async (id) => {
   );
   return result.affectedRows > 0;
 };
+
+export const lockById = async (id, conn = null) => {
+  const exec = conn || pool;
+  const [rows] = await exec.query(
+    `SELECT id FROM vouchers WHERE id = ? FOR UPDATE`, [id]
+  );
+  return rows[0];
+};

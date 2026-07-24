@@ -138,11 +138,8 @@ export const createOrder = async (userId, data) => {
     }, conn);
 
     for (const item of itemsToOrder) {
-      const [locked] = await conn.query(
-        'SELECT quantity FROM inventories WHERE variant_id = ? FOR UPDATE',
-        [item.variant_id]
-      );
-      if (!locked.length || locked[0].quantity < item.quantity) {
+      const lockedInventory = await inventoryModel.findByVariantIdForUpdate(item.variant_id, conn);
+      if (!lockedInventory || lockedInventory.quantity < item.quantity) {
         throw new Error(`Sản phẩm "${item.product_name}" không đủ hàng`);
       }
 
@@ -153,11 +150,8 @@ export const createOrder = async (userId, data) => {
         item.metadata, conn
       );
 
-      const [result] = await conn.execute(
-        `UPDATE inventories SET quantity = quantity - ? WHERE variant_id = ? AND quantity >= ?`,
-        [item.quantity, item.variant_id, item.quantity]
-      );
-      if (result.affectedRows === 0) {
+      const decremented = await inventoryModel.decrementStock(item.variant_id, item.quantity, conn);
+      if (!decremented) {
         throw new Error(`Sản phẩm "${item.product_name}" không đủ hàng`);
       }
 
@@ -169,13 +163,13 @@ export const createOrder = async (userId, data) => {
         reference_id: orderId,
         note: `Đơn hàng ${orderCode}`,
         created_by: userId
-      });
+      }, conn);
 
       await cartModel.removeItem(item.id, cart.id, conn);
     }
 
     if (voucherId) {
-      await conn.query('SELECT id FROM vouchers WHERE id = ? FOR UPDATE', [voucherId]);
+      await voucherModel.lockById(voucherId, conn);
       await voucherModel.incrementUsedCount(voucherId, conn);
     }
 
@@ -251,34 +245,31 @@ export const cancelOrder = async (orderCode, userId, cancelReason = null) => {
   try {
     await conn.beginTransaction();
 
-    const [locked] = await conn.query('SELECT id, status FROM orders WHERE id = ? FOR UPDATE', [order.id]);
+    const locked = await orderModel.lockById(order.id, conn);
 
-    if (!cancellableStatuses.includes(locked[0].status)) {
+    if (!cancellableStatuses.includes(locked.status)) {
       throw new Error('Đơn hàng không thể hủy ở trạng thái hiện tại');
     }
 
     const oldStatus = order.status;
-    await conn.execute('UPDATE orders SET status = ?, cancel_reason = ? WHERE id = ?', ['cancelled', cancelReason, order.id]);
-
-    await conn.execute(
-      'INSERT INTO order_status_history (order_id, from_status, to_status, changed_by) VALUES (?, ?, ?, ?)',
-      [order.id, oldStatus, 'cancelled', userId]
-    );
+    await orderModel.updateStatusAndCancelReason(order.id, 'cancelled', cancelReason, conn);
+    await orderModel.addStatusHistory(order.id, oldStatus, 'cancelled', userId, null, conn);
 
     const items = await orderModel.findItemsByOrderId(order.id);
     for (const item of items) {
-      const [result] = await conn.execute(
-        'UPDATE inventories SET quantity = quantity + ? WHERE variant_id = ?',
-        [item.quantity, item.variant_id]
-      );
-      if (result.affectedRows === 0) {
+      const added = await inventoryModel.addStock(item.variant_id, item.quantity, conn);
+      if (!added) {
         throw new Error(`Không tìm thấy kho hàng cho biến thể ${item.variant_id}`);
       }
-      await conn.execute(
-        `INSERT INTO inventory_transactions (variant_id, transaction_type, quantity, reference_type, reference_id, note, created_by)
-         VALUES (?, 'cancel_order', ?, 'order', ?, ?, ?)`,
-        [item.variant_id, item.quantity, order.id, `Hủy đơn hàng ${orderCode}`, userId]
-      );
+      await inventoryModel.logTransaction({
+        variant_id: item.variant_id,
+        transaction_type: 'cancel_order',
+        quantity: item.quantity,
+        reference_type: 'order',
+        reference_id: order.id,
+        note: `Hủy đơn hàng ${orderCode}`,
+        created_by: userId
+      }, conn);
     }
 
     if (order.voucher_id) {
@@ -309,8 +300,7 @@ export const updateOrderStatus = async (orderCode, newStatus, changedBy = null, 
   try {
     await conn.beginTransaction();
 
-    const [locked] = await conn.query('SELECT * FROM orders WHERE order_code = ? FOR UPDATE', [orderCode]);
-    const order = locked[0];
+    const order = await orderModel.lockByOrderCode(orderCode, conn);
     if (!order) {
       throw new Error('Không tìm thấy đơn hàng');
     }
@@ -324,11 +314,7 @@ export const updateOrderStatus = async (orderCode, newStatus, changedBy = null, 
       throw error;
     }
 
-    await conn.execute('UPDATE orders SET status = ? WHERE id = ?', [newStatus, order.id]);
-    await conn.execute(
-      'INSERT INTO order_status_history (order_id, from_status, to_status, changed_by, note) VALUES (?, ?, ?, ?, ?)',
-      [order.id, order.status, newStatus, changedBy, note]
-    );
+    await orderModel.updateStatusWithHistory(order.id, order.status, newStatus, changedBy, note, conn);
 
     await conn.commit();
   } catch (error) {
@@ -349,16 +335,7 @@ export const getOrderStatusHistory = async (orderCode, userId = null) => {
     throw error;
   }
 
-  const [rows] = await pool.execute(
-    `SELECT osh.*, u.full_name AS changed_by_name
-     FROM order_status_history osh
-     LEFT JOIN users u ON osh.changed_by = u.id
-     WHERE osh.order_id = ?
-     ORDER BY osh.id DESC`,
-    [order.id]
-  );
-
-  return rows;
+  return await orderModel.getStatusHistory(order.id);
 };
 
 export const retryPayment = async (orderCode, userId) => {

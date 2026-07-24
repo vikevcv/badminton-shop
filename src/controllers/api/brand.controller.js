@@ -1,21 +1,6 @@
 import * as brandService from '../../services/brand.service.js';
+import { verifyAdminOrStaff } from '../../services/auth.service.js';
 import { sendSuccess } from '../../helpers/response.helper.js';
-import jwt from 'jsonwebtoken';
-import { isBlacklisted, hashToken } from '../../models/token-blacklist.model.js';
-
-const verifyAdminOrStaff = async (req) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
-  try {
-    const token = authHeader.split(' ')[1];
-    const blacklisted = await isBlacklisted(hashToken(token));
-    if (blacklisted) return false;
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    return decoded.role === 'admin' || decoded.role === 'staff';
-  } catch {
-    return false;
-  }
-};
 
 export const getAllBrands = async (req, res, next) => {
   try {

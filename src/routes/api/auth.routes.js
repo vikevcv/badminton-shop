@@ -53,4 +53,6 @@ router.put('/change-password', verifyToken, validate({
 
 router.post('/logout', verifyToken, AuthApiController.logout);
 
+router.post('/refresh', AuthApiController.refreshToken);
+
 export default router;

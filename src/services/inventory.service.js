@@ -10,30 +10,27 @@ export const adjustStock = async (variantId, quantity, note, userId) => {
   try {
     await conn.beginTransaction();
 
-    const [locked] = await conn.query(
-      'SELECT * FROM inventories WHERE variant_id = ? FOR UPDATE',
-      [variantId]
-    );
-    if (!locked.length) {
+    const locked = await inventoryModel.findByVariantIdForUpdate(variantId, conn);
+    if (!locked) {
       const error = new Error('Không tìm thấy biến thể trong kho');
       error.status = 404;
       throw error;
     }
 
-    const diff = quantity - locked[0].quantity;
+    const diff = quantity - locked.quantity;
 
-    await conn.execute(
-      'UPDATE inventories SET quantity = ? WHERE variant_id = ?',
-      [quantity, variantId]
-    );
-    await conn.execute(
-      `INSERT INTO inventory_transactions (variant_id, transaction_type, quantity, reference_type, note, created_by)
-       VALUES (?, 'adjustment', ?, 'manual', ?, ?)`,
-      [variantId, diff, note || null, userId]
-    );
+    await inventoryModel.setQuantity(variantId, quantity, conn);
+    await inventoryModel.logTransaction({
+      variant_id: variantId,
+      transaction_type: 'adjustment',
+      quantity: diff,
+      reference_type: 'manual',
+      note: note || null,
+      created_by: userId
+    }, conn);
 
     await conn.commit();
-    return { previousQuantity: locked[0].quantity, newQuantity: quantity, diff };
+    return { previousQuantity: locked.quantity, newQuantity: quantity, diff };
   } catch (error) {
     await conn.rollback();
     throw error;

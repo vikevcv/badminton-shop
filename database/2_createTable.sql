@@ -45,16 +45,6 @@ CREATE TABLE IF NOT EXISTS users (
     INDEX idx_users_deleted_at (deleted_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Token blacklist cho logout
-CREATE TABLE IF NOT EXISTS token_blacklist (
-    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    token_hash VARCHAR(64) NOT NULL,
-    expires_at DATETIME NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_token_blacklist_hash (token_hash),
-    INDEX idx_token_blacklist_expires (expires_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 -- Password reset tokens
 CREATE TABLE IF NOT EXISTS password_resets (
     email VARCHAR(150) NOT NULL,
@@ -410,6 +400,23 @@ CREATE TABLE IF NOT EXISTS banners (
     deleted_at DATETIME NULL,
     INDEX idx_banner_status (status),
     INDEX idx_banner_sort (sort_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =====================================================
+-- 18. REFRESH TOKENS
+-- =====================================================
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  token_hash VARCHAR(64) NOT NULL UNIQUE,
+  family VARCHAR(36) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  revoked_at DATETIME NULL,
+  INDEX idx_user_id (user_id),
+  INDEX idx_token_hash (token_hash),
+  INDEX idx_expires (expires_at),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;

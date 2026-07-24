@@ -1,4 +1,31 @@
+import jwt from 'jsonwebtoken';
 import * as AuthService from '../../services/auth.service.js';
+
+const COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'strict',
+  signed: true
+};
+
+const setAuthCookies = (res, accessToken, refreshToken) => {
+  res.cookie('accessToken', accessToken, {
+    ...COOKIE_OPTIONS, path: '/', maxAge: 30 * 60 * 1000
+  });
+  res.cookie('refreshToken', refreshToken, {
+    ...COOKIE_OPTIONS, path: '/api/auth/refresh', maxAge: 7 * 24 * 60 * 60 * 1000
+  });
+};
+
+const clearAuthCookies = (res) => {
+  res.clearCookie('accessToken', { path: '/' });
+  res.clearCookie('refreshToken', { path: '/api/auth/refresh' });
+  res.clearCookie('returnTo', { path: '/' });
+};
+
+const clearReturnToCookie = (res) => {
+  res.clearCookie('returnTo', { path: '/' });
+};
 
 export const loginForm = (req, res) => {
   res.render('login', {
@@ -26,16 +53,11 @@ export const login = async (req, res, next) => {
     }
 
     const result = await AuthService.login(email, password);
+    setAuthCookies(res, result.accessToken, result.refreshToken);
 
-    req.session.user = result.user;
-    req.session.token = result.token;
-
-    req.session.save((err) => {
-      if (err) return next(err);
-      const redirectTo = req.session.returnTo || '/';
-      delete req.session.returnTo;
-      res.redirect(redirectTo);
-    });
+    const redirectTo = req.cookies?.returnTo || '/';
+    clearReturnToCookie(res);
+    res.redirect(redirectTo);
   } catch (error) {
     res.render('login', {
       title: 'Đăng nhập | Badminton Shop',
@@ -63,16 +85,10 @@ export const register = async (req, res, next) => {
     }
 
     await AuthService.register({ fullName, email, password, phone });
-
     const result = await AuthService.login(email, password);
+    setAuthCookies(res, result.accessToken, result.refreshToken);
 
-    req.session.user = result.user;
-    req.session.token = result.token;
-
-    req.session.save((err) => {
-      if (err) return next(err);
-      res.redirect('/');
-    });
+    res.redirect('/');
   } catch (error) {
     res.render('register', {
       title: 'Đăng ký | Badminton Shop',
@@ -81,10 +97,15 @@ export const register = async (req, res, next) => {
   }
 };
 
-export const logout = (req, res, next) => {
-  req.session.destroy((err) => {
-    if (err) return next(err);
-    res.clearCookie('badminton_shop_session');
-    res.redirect('/login');
-  });
+export const logout = async (req, res, next) => {
+  try {
+    const token = req.signedCookies?.accessToken;
+    const decoded = token ? jwt.decode(token) : null;
+    if (token && decoded?.userId) {
+      await AuthService.logout(token, decoded.userId).catch(() => {});
+    }
+  } catch (_) {}
+
+  clearAuthCookies(res);
+  res.redirect('/login');
 };

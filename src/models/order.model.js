@@ -123,4 +123,63 @@ export const findById = async (id) => {
   return rows[0];
 };
 
+export const findByIdForUpdate = async (id, conn = null) => {
+  const exec = conn || pool;
+  const [rows] = await exec.query(`SELECT * FROM orders WHERE id = ? FOR UPDATE`, [id]);
+  return rows[0];
+};
+
+export const lockById = async (id, conn = null) => {
+  const exec = conn || pool;
+  const [rows] = await exec.query(
+    `SELECT id, status FROM orders WHERE id = ? FOR UPDATE`, [id]
+  );
+  return rows[0];
+};
+
+export const lockByOrderCode = async (orderCode, conn = null) => {
+  const exec = conn || pool;
+  const [rows] = await exec.query(
+    `SELECT * FROM orders WHERE order_code = ? FOR UPDATE`, [orderCode]
+  );
+  return rows[0];
+};
+
+export const updateStatusWithHistory = async (orderId, fromStatus, toStatus, changedBy, note = null, conn = null) => {
+  const exec = conn || pool;
+  await exec.execute('UPDATE orders SET status = ? WHERE id = ?', [toStatus, orderId]);
+  await exec.execute(
+    'INSERT INTO order_status_history (order_id, from_status, to_status, changed_by, note) VALUES (?, ?, ?, ?, ?)',
+    [orderId, fromStatus, toStatus, changedBy, note]
+  );
+};
+
+export const updateStatusAndCancelReason = async (orderId, status, cancelReason, conn = null) => {
+  const exec = conn || pool;
+  await exec.execute(
+    'UPDATE orders SET status = ?, cancel_reason = ? WHERE id = ?',
+    [status, cancelReason, orderId]
+  );
+};
+
+export const addStatusHistory = async (orderId, fromStatus, toStatus, changedBy, note = null, conn = null) => {
+  const exec = conn || pool;
+  await exec.execute(
+    'INSERT INTO order_status_history (order_id, from_status, to_status, changed_by, note) VALUES (?, ?, ?, ?, ?)',
+    [orderId, fromStatus, toStatus, changedBy, note]
+  );
+};
+
+export const getStatusHistory = async (orderId) => {
+  const [rows] = await pool.execute(
+    `SELECT osh.*, u.full_name AS changed_by_name
+     FROM order_status_history osh
+     LEFT JOIN users u ON osh.changed_by = u.id
+     WHERE osh.order_id = ?
+     ORDER BY osh.id DESC`,
+    [orderId]
+  );
+  return rows;
+};
+
 

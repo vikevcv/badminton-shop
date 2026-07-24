@@ -7,15 +7,15 @@ Full-stack e-commerce platform for badminton equipment built with Node.js, Expre
 ## Tech Stack
 
 - **Backend**: Node.js, Express 5
-- **Database**: MySQL 8 (via `mysql2`, `express-mysql-session`)
-- **Auth**: JWT (API) + Session (Web SSR), token_version force-logout
+- **Database**: MySQL 8 (via `mysql2`)
+- **Auth**: JWT (access + refresh tokens, HttpOnly cookies), token_version force-logout
 - **Template**: Handlebars (`express-handlebars`)
 - **Email**: Nodemailer + Brevo SMTP
 - **Logger**: Morgan
 
 ## Features
 
-- **Auth** — Register, login, profile, change password, forgot/reset password (email), logout (token blacklist)
+- **Auth** — Register, login, profile, change password, forgot/reset password (email), logout (token_version force-logout)
 - **Products** — CRUD, variants (SKU), images, search/filter, pagination, sort by popularity
 - **Categories & Brands** — CRUD, soft delete/restore
 - **Cart** — Add, update quantity, remove, clear (race-condition safe)
@@ -55,7 +55,8 @@ Copy `.env` and configure:
 | `SMTP_HOST` `SMTP_PORT` `SMTP_USER` `SMTP_PASS` | Brevo SMTP (or any provider) |
 | `JWT_SECRET` | Random secret for JWT signing |
 | `APP_URL` | e.g. `http://localhost:3000` |
-| `SESSION_SECRET` | Random secret for session cookie |
+| `JWT_ACCESS_EXPIRES` | Access token expiry (default `30m`) |
+| `JWT_REFRESH_EXPIRES` | Refresh token expiry (default `7d`) |
 
 ### Database
 
@@ -88,6 +89,7 @@ npm start      # Production
 ### Auth
 
 All protected endpoints require `Authorization: Bearer <token>` header.
+Refresh tokens are stored in HttpOnly signed cookies (`accessToken` + `refreshToken`) for browser clients, and returned in response body for mobile/SPA clients.
 
 ### Base URL
 
@@ -99,7 +101,7 @@ http://localhost:3000/api
 
 | Group      | Endpoints |
 |------------|-----------|
-| Auth       | `POST /auth/register`, `/auth/login`, `GET /auth/me`, `PUT /auth/me`, `PUT /auth/change-password`, `POST /auth/logout`, `POST /auth/forgot-password`, `POST /auth/reset-password` |
+| Auth       | `POST /auth/register`, `/auth/login`, `POST /auth/refresh`, `GET /auth/me`, `PUT /auth/me`, `PUT /auth/change-password`, `POST /auth/logout`, `POST /auth/forgot-password`, `POST /auth/reset-password` |
 | Products   | `GET /products`, `GET /products/search`, `GET /products/:slug`, `GET /products/newest/:categorySlug`, `POST /products`, `PUT /products/:id`, `DELETE /products/:id`, `PUT /products/:id/restore` |
 | Cart       | `GET /cart`, `POST /cart/items`, `PUT /cart/items/:id`, `DELETE /cart/items/:id`, `DELETE /cart` |
 | Orders     | `POST /orders`, `GET /orders`, `GET /orders/all`, `GET /orders/:code`, `POST /orders/:code/cancel`, `PUT /orders/:code/status`, `PUT /orders/:code/tracking` |
@@ -117,7 +119,7 @@ src/
 ├── controllers/      # Route handlers (API + Web SSR)
 ├── database/         # SQL schema, seed scripts
 ├── helpers/          # Response helpers (sendSuccess, sendError)
-├── middlewares/      # Auth (JWT/session), error handler, validation
+├── middlewares/      # Auth (JWT, cookies), error handler, validation
 ├── models/           # Data access layer (MySQL queries)
 ├── routes/           # Express route definitions
 ├── services/         # Business logic layer

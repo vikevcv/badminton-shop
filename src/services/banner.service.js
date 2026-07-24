@@ -27,22 +27,15 @@ export const createBanner = async (data) => {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
-    const [existing] = await conn.query(
-      'SELECT id FROM banners WHERE sort_order >= ? AND deleted_at IS NULL FOR UPDATE',
-      [data.sort_order || 0]
-    );
-    if (existing.length > 0) {
-      await conn.query(
-        'UPDATE banners SET sort_order = sort_order + 1 WHERE sort_order >= ? AND deleted_at IS NULL',
-        [data.sort_order || 0]
-      );
+
+    const hasExisting = await bannerModel.existsAtOrAbove(data.sort_order || 0, conn);
+    if (hasExisting) {
+      await bannerModel.shiftUp(data.sort_order || 0, null, conn);
     }
-    const [result] = await conn.execute(
-      `INSERT INTO banners (title, image_url, link_url, description, sort_order, status) VALUES (?, ?, ?, ?, ?, ?)`,
-      [data.title, data.image_url, data.link_url || null, data.description || null, data.sort_order || 0, data.status || 'active']
-    );
+    const insertId = await bannerModel.create(data, conn);
+
     await conn.commit();
-    return result.insertId;
+    return insertId;
   } catch (error) {
     await conn.rollback();
     throw error;
@@ -68,43 +61,19 @@ export const updateBanner = async (id, data) => {
 
     if (newSortOrder !== oldSortOrder) {
       if (newSortOrder < oldSortOrder) {
-        const [rows] = await conn.query(
-          'SELECT id FROM banners WHERE sort_order >= ? AND sort_order < ? AND id != ? AND deleted_at IS NULL FOR UPDATE',
-          [newSortOrder, oldSortOrder, id]
-        );
-        if (rows.length > 0) {
-          await conn.query(
-            'UPDATE banners SET sort_order = sort_order + 1 WHERE sort_order >= ? AND sort_order < ? AND id != ? AND deleted_at IS NULL',
-            [newSortOrder, oldSortOrder, id]
-          );
+        const hasInRange = await bannerModel.existsInRange(newSortOrder, oldSortOrder, id, conn);
+        if (hasInRange) {
+          await bannerModel.shiftDown(newSortOrder, conn);
         }
       } else {
-        const [rows] = await conn.query(
-          'SELECT id FROM banners WHERE sort_order > ? AND sort_order <= ? AND id != ? AND deleted_at IS NULL FOR UPDATE',
-          [oldSortOrder, newSortOrder, id]
-        );
-        if (rows.length > 0) {
-          await conn.query(
-            'UPDATE banners SET sort_order = sort_order - 1 WHERE sort_order > ? AND sort_order <= ? AND id != ? AND deleted_at IS NULL',
-            [oldSortOrder, newSortOrder, id]
-          );
+        const hasInRange = await bannerModel.existsInRange(oldSortOrder, newSortOrder, id, conn);
+        if (hasInRange) {
+          await bannerModel.shiftUp(oldSortOrder, id, conn);
         }
       }
     }
 
-    const updateFields = [];
-    const updateParams = [];
-    const allowed = ['title', 'image_url', 'link_url', 'description', 'sort_order', 'status'];
-    for (const key of allowed) {
-      if (data[key] !== undefined) {
-        updateFields.push(`${key} = ?`);
-        updateParams.push(data[key]);
-      }
-    }
-    if (updateFields.length > 0) {
-      updateParams.push(id);
-      await conn.execute(`UPDATE banners SET ${updateFields.join(', ')} WHERE id = ?`, updateParams);
-    }
+    await bannerModel.update(id, data, conn);
 
     await conn.commit();
   } catch (error) {
@@ -126,18 +95,10 @@ export const deleteBanner = async (id) => {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
-    await conn.execute(
-      `UPDATE banners SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL`,
-      [id]
-    );
-    await conn.query(
-      'SELECT id FROM banners WHERE sort_order > ? AND deleted_at IS NULL FOR UPDATE',
-      [banner.sort_order]
-    );
-    await conn.query(
-      'UPDATE banners SET sort_order = sort_order - 1 WHERE sort_order > ? AND deleted_at IS NULL',
-      [banner.sort_order]
-    );
+
+    await bannerModel.softDelete(id, conn);
+    await bannerModel.shiftDown(banner.sort_order, conn);
+
     await conn.commit();
   } catch (error) {
     await conn.rollback();
@@ -161,21 +122,12 @@ export const restoreBanner = async (id, sortOrder) => {
 
     const newSortOrder = sortOrder ?? banner.sort_order;
 
-    const [existing] = await conn.query(
-      'SELECT id FROM banners WHERE sort_order >= ? AND deleted_at IS NULL FOR UPDATE',
-      [newSortOrder]
-    );
-    if (existing.length > 0) {
-      await conn.query(
-        'UPDATE banners SET sort_order = sort_order + 1 WHERE sort_order >= ? AND deleted_at IS NULL',
-        [newSortOrder]
-      );
+    const hasExisting = await bannerModel.existsAtOrAbove(newSortOrder, conn);
+    if (hasExisting) {
+      await bannerModel.shiftUp(newSortOrder, null, conn);
     }
 
-    await conn.execute(
-      'UPDATE banners SET deleted_at = NULL, sort_order = ? WHERE id = ? AND deleted_at IS NOT NULL',
-      [newSortOrder, id]
-    );
+    await bannerModel.restore(id, newSortOrder, conn);
 
     await conn.commit();
   } catch (error) {

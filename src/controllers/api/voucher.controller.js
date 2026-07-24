@@ -1,10 +1,9 @@
 import * as voucherService from '../../services/voucher.service.js';
-import * as voucherModel from '../../models/voucher.model.js';
 import { sendSuccess } from '../../helpers/response.helper.js';
 
 export const getAllVouchers = async (req, res, next) => {
   try {
-    const vouchers = await voucherModel.findAll();
+    const vouchers = await voucherService.getAllVouchers();
     sendSuccess(res, vouchers);
   } catch (error) {
     next(error);

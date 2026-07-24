@@ -1,9 +1,9 @@
-import crypto from 'crypto';
 import pool from '../config/database.js';
 import * as paymentModel from '../models/payment.model.js';
 import * as orderModel from '../models/order.model.js';
 import * as inventoryModel from '../models/inventory.model.js';
 import * as voucherModel from '../models/voucher.model.js';
+import * as customerProfileModel from '../models/customer-profile.model.js';
 import { VALID_TRANSITIONS, STATUS_LABELS } from './order.service.js';
 
 const VALID_CALLBACK_STATUSES = ['success', 'failed', 'expired', 'refunded'];
@@ -53,10 +53,7 @@ export const createPayment = async (userId, data) => {
     }
 
     await orderModel.updateStatus(order.id, 'confirmed');
-    await pool.execute(
-      'INSERT INTO order_status_history (order_id, from_status, to_status, changed_by, note) VALUES (?, ?, ?, ?, ?)',
-      [order.id, order.status, 'confirmed', userId, 'Thanh toán khi nhận hàng']
-    );
+    await orderModel.addStatusHistory(order.id, order.status, 'confirmed', userId, 'Thanh toán khi nhận hàng');
 
     return {
       payment_code: paymentCode,
@@ -123,13 +120,12 @@ export const handleCallback = async (data, headers = {}) => {
   try {
     await conn.beginTransaction();
 
-    await conn.execute(
-      `UPDATE payments SET status = ?, transaction_id = COALESCE(?, transaction_id), gateway_response = COALESCE(?, gateway_response), paid_at = IF(? = 'success', NOW(), paid_at) WHERE id = ?`,
-      [status, transaction_id || null, gateway_response ? JSON.stringify(gateway_response) : null, status, payment.id]
+    await paymentModel.updateStatus(
+      payment.id, status, transaction_id || null,
+      gateway_response ? JSON.stringify(gateway_response) : null, conn
     );
 
-    const [orderRows] = await conn.query('SELECT * FROM orders WHERE id = ? FOR UPDATE', [payment.order_id]);
-    const order = orderRows[0];
+    const order = await orderModel.findByIdForUpdate(payment.order_id, conn);
     if (!order) {
       throw new Error('Không tìm thấy đơn hàng');
     }
@@ -148,10 +144,9 @@ export const handleCallback = async (data, headers = {}) => {
         throw error;
       }
 
-      await conn.execute('UPDATE orders SET status = ? WHERE id = ?', ['confirmed', order.id]);
-      await conn.execute(
-        'INSERT INTO order_status_history (order_id, from_status, to_status, changed_by, note) VALUES (?, ?, ?, ?, ?)',
-        [order.id, order.status, 'confirmed', null, `Thanh toán thành công - ${transaction_id}`]
+      await orderModel.updateStatusWithHistory(
+        order.id, order.status, 'confirmed', null,
+        `Thanh toán thành công - ${transaction_id}`, conn
       );
     }
 
@@ -162,51 +157,42 @@ export const handleCallback = async (data, headers = {}) => {
         throw error;
       }
 
-      await conn.execute('UPDATE orders SET status = ? WHERE id = ?', ['payment_failed', order.id]);
-      await conn.execute(
-        'INSERT INTO order_status_history (order_id, from_status, to_status, changed_by, note) VALUES (?, ?, ?, ?, ?)',
-        [order.id, order.status, 'payment_failed', null, `Thanh toán ${status === 'failed' ? 'thất bại' : 'hết hạn'} - ${transaction_id}`]
+      await orderModel.updateStatusWithHistory(
+        order.id, order.status, 'payment_failed', null,
+        `Thanh toán ${status === 'failed' ? 'thất bại' : 'hết hạn'} - ${transaction_id}`, conn
       );
     }
 
     if (status === 'refunded') {
       if (order.status === 'confirmed' || order.status === 'completed') {
-        const [items] = await conn.query(
-          'SELECT oi.variant_id, oi.quantity FROM order_items oi WHERE oi.order_id = ?',
-          [order.id]
-        );
+        const items = await orderModel.findItemsByOrderId(order.id);
         for (const item of items) {
-          await conn.execute(
-            'SELECT variant_id FROM inventories WHERE variant_id = ? FOR UPDATE',
-            [item.variant_id]
-          );
-          await conn.execute(
-            'UPDATE inventories SET quantity = quantity + ? WHERE variant_id = ?',
-            [item.quantity, item.variant_id]
-          );
-          await conn.execute(
-            `INSERT INTO inventory_transactions (variant_id, transaction_type, quantity, reference_type, reference_id, note)
-             VALUES (?, 'refund', ?, 'order', ?, ?)`,
-            [item.variant_id, item.quantity, order.id, `Hoàn tiền đơn hàng ${order.order_code}`]
-          );
+          await inventoryModel.findByVariantIdForUpdate(item.variant_id, conn);
+          await inventoryModel.addStock(item.variant_id, item.quantity, conn);
+          await inventoryModel.logTransaction({
+            variant_id: item.variant_id,
+            transaction_type: 'refund',
+            quantity: item.quantity,
+            reference_type: 'order',
+            reference_id: order.id,
+            note: `Hoàn tiền đơn hàng ${order.order_code}`
+          }, conn);
         }
 
         if (order.voucher_id) {
-          await conn.execute('SELECT id FROM vouchers WHERE id = ? FOR UPDATE', [order.voucher_id]);
-          await conn.execute('UPDATE vouchers SET used_count = GREATEST(used_count - 1, 0) WHERE id = ?', [order.voucher_id]);
+          await voucherModel.lockById(order.voucher_id, conn);
+          await voucherModel.decrementUsedCount(order.voucher_id, conn);
         }
 
-        await conn.execute(
-          'UPDATE customer_profiles SET total_spent = GREATEST(total_spent - ?, 0) WHERE user_id = ?',
-          [parseFloat(order.final_amount), order.user_id]
+        await customerProfileModel.updateTotalSpent(
+          order.user_id, -parseFloat(order.final_amount), conn
         );
       }
 
       const prevStatus = order.status;
-      await conn.execute('UPDATE orders SET status = ? WHERE id = ?', ['refunded', order.id]);
-      await conn.execute(
-        'INSERT INTO order_status_history (order_id, from_status, to_status, changed_by, note) VALUES (?, ?, ?, ?, ?)',
-        [order.id, prevStatus, 'refunded', null, `Hoàn tiền - ${transaction_id}`]
+      await orderModel.updateStatusWithHistory(
+        order.id, prevStatus, 'refunded', null,
+        `Hoàn tiền - ${transaction_id}`, conn
       );
     }
 
@@ -228,9 +214,5 @@ export const getPaymentsByOrderCode = async (orderCode, userId = null) => {
     error.status = 404;
     throw error;
   }
-  const [rows] = await pool.query(
-    'SELECT * FROM payments WHERE order_id = ? ORDER BY created_at DESC',
-    [order.id]
-  );
-  return rows;
+  return await paymentModel.findByOrderId(order.id);
 };

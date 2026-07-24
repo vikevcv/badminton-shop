@@ -129,9 +129,24 @@ export const updateUserStatus = async (userId, status, changedBy) => {
   }
 };
 
+export const findUserForAuth = async (id) => {
+  const [rows] = await pool.query(
+    `SELECT status, token_version FROM users WHERE id = ? AND deleted_at IS NULL`,
+    [id]
+  );
+  return rows[0];
+};
+
 export const updateUserRole = async (userId, role) => {
   await pool.execute(
     `UPDATE users SET role = ?, updated_at = NOW() WHERE id = ?`,
     [role, userId]
+  );
+};
+
+export const incrementTokenVersion = async (userId) => {
+  await pool.execute(
+    `UPDATE users SET token_version = token_version + 1, updated_at = NOW() WHERE id = ?`,
+    [userId]
   );
 };

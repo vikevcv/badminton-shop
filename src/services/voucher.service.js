@@ -105,3 +105,7 @@ export const deleteVoucher = async (code) => {
 export const getAllVouchersAdmin = async () => {
   return await voucherModel.findAllAdmin();
 };
+
+export const getAllVouchers = async () => {
+  return await voucherModel.findAll();
+};

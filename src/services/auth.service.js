@@ -1,11 +1,21 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import * as UserModel from '../models/user.model.js';
 import * as passwordResetModel from '../models/password-reset.model.js';
-import * as tokenBlacklistModel from '../models/token-blacklist.model.js';
+import * as refreshTokenModel from '../models/refresh-token.model.js';
+import pool from '../config/database.js';
 import { sendWelcome, sendForgotPassword } from './mail.service.js';
 
 const SALT_ROUNDS = 10;
+
+const parseDuration = (duration) => {
+  const match = String(duration).match(/^(\d+)\s*(d|h|m|s)$/);
+  if (!match) return 7 * 24 * 60 * 60 * 1000;
+  const value = parseInt(match[1]);
+  const multipliers = { d: 86400000, h: 3600000, m: 60000, s: 1000 };
+  return value * (multipliers[match[2]] || 86400000);
+};
 
 const buildUserResponse = (user) => ({
   id: user.id,
@@ -15,12 +25,65 @@ const buildUserResponse = (user) => ({
   role: user.role
 });
 
-const generateToken = (user) => {
+const generateAccessToken = (user) => {
   return jwt.sign(
-    { userId: user.id, role: user.role, token_version: user.token_version || 0 },
+    { userId: user.id, role: user.role, token_version: user.token_version || 0,
+      fullName: user.full_name },
     process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+    { expiresIn: process.env.JWT_ACCESS_EXPIRES || '30m' }
   );
+};
+
+const generateRefreshToken = async (user) => {
+  const refreshTokenString = refreshTokenModel.generateTokenString();
+  const tokenHash = refreshTokenModel.hashToken(refreshTokenString);
+  const family = crypto.randomUUID();
+  const expiresAt = new Date(Date.now() + parseDuration(process.env.JWT_REFRESH_EXPIRES || '7d'));
+
+  await refreshTokenModel.create(user.id, tokenHash, family, expiresAt);
+
+  return { refreshTokenString, family };
+};
+
+const rotate = async (oldTokenRecord) => {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const locked = await refreshTokenModel.findByIdForUpdate(oldTokenRecord.id, conn);
+
+    if (!locked || locked.revoked_at) {
+      await refreshTokenModel.revokeFamily(oldTokenRecord.family);
+      await conn.commit();
+      const error = new Error('Phiên đăng nhập đã bị đánh cắp, vui lòng đăng nhập lại');
+      error.status = 401;
+      throw error;
+    }
+
+    await refreshTokenModel.revokeById(oldTokenRecord.id, conn);
+
+    const user = await UserModel.findUserById(oldTokenRecord.user_id);
+    if (!user || user.status !== 'active') {
+      await conn.rollback();
+      const error = new Error('Tài khoản không hợp lệ');
+      error.status = 401;
+      throw error;
+    }
+
+    const refreshTokenString = refreshTokenModel.generateTokenString();
+    const tokenHash = refreshTokenModel.hashToken(refreshTokenString);
+    const expiresAt = new Date(Date.now() + parseDuration(process.env.JWT_REFRESH_EXPIRES || '7d'));
+
+    await refreshTokenModel.create(user.id, tokenHash, oldTokenRecord.family, expiresAt, conn);
+
+    await conn.commit();
+    return { refreshTokenString, user };
+  } catch (error) {
+    await conn.rollback();
+    throw error;
+  } finally {
+    conn.release();
+  }
 };
 
 export const register = async (data) => {
@@ -79,12 +142,61 @@ export const login = async (email, password) => {
     throw error;
   }
 
-  const token = generateToken(user);
+  const accessToken = generateAccessToken(user);
+  const { refreshTokenString } = await generateRefreshToken(user);
 
   return {
-    token,
+    accessToken,
+    refreshToken: refreshTokenString,
     user: buildUserResponse(user)
   };
+};
+
+export const refreshAccessToken = async (refreshTokenString) => {
+  const tokenHash = refreshTokenModel.hashToken(refreshTokenString);
+  const tokenRecord = await refreshTokenModel.findByHash(tokenHash);
+
+  if (!tokenRecord) {
+    const error = new Error('Refresh token không hợp lệ');
+    error.status = 401;
+    throw error;
+  }
+
+  if (tokenRecord.revoked_at) {
+    await refreshTokenModel.revokeFamily(tokenRecord.family);
+    const error = new Error('Phiên đăng nhập đã bị đánh cắp, vui lòng đăng nhập lại');
+    error.status = 401;
+    throw error;
+  }
+
+  if (new Date(tokenRecord.expires_at) < new Date()) {
+    const error = new Error('Refresh token đã hết hạn');
+    error.status = 401;
+    throw error;
+  }
+
+  const { refreshTokenString: newRefreshTokenString, user } = await rotate(tokenRecord);
+  const accessToken = generateAccessToken(user);
+
+  return {
+    accessToken,
+    refreshToken: newRefreshTokenString
+  };
+};
+
+export const verifyAdminOrStaff = async (req) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
+  try {
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.role !== 'admin' && decoded.role !== 'staff') return false;
+    const user = await UserModel.findUserForAuth(decoded.userId);
+    if (!user || user.status !== 'active' || user.token_version !== decoded.token_version) return false;
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 export const getProfile = async (userId) => {
@@ -130,16 +242,14 @@ export const changePassword = async (userId, currentPassword, newPassword) => {
 
   const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
   await UserModel.updatePassword(userId, hashedPassword);
+  await UserModel.incrementTokenVersion(userId);
+  await refreshTokenModel.revokeAllByUserId(userId);
   return true;
 };
 
-export const logout = async (token) => {
-  const decoded = jwt.decode(token);
-  if (decoded && decoded.exp) {
-    const tokenHash = tokenBlacklistModel.hashToken(token);
-    const expiresAt = new Date(decoded.exp * 1000);
-    await tokenBlacklistModel.add(tokenHash, expiresAt);
-  }
+export const logout = async (token, userId) => {
+  await UserModel.incrementTokenVersion(userId);
+  await refreshTokenModel.revokeAllByUserId(userId);
   return true;
 };
 

@@ -26,15 +26,17 @@ export const findByIdAdmin = async (id, includeDeleted = false) => {
   return rows[0];
 };
 
-export const create = async (data) => {
-  const [result] = await pool.execute(
+export const create = async (data, conn = null) => {
+  const exec = conn || pool;
+  const [result] = await exec.execute(
     `INSERT INTO banners (title, image_url, link_url, description, sort_order, status) VALUES (?, ?, ?, ?, ?, ?)`,
     [data.title, data.image_url, data.link_url || null, data.description || null, data.sort_order || 0, data.status || 'active']
   );
   return result.insertId;
 };
 
-export const update = async (id, data) => {
+export const update = async (id, data, conn = null) => {
+  const exec = conn || pool;
   const fields = [];
   const params = [];
   const allowed = ['title', 'image_url', 'link_url', 'description', 'sort_order', 'status'];
@@ -46,30 +48,33 @@ export const update = async (id, data) => {
   }
   if (fields.length === 0) return false;
   params.push(id);
-  const [result] = await pool.execute(`UPDATE banners SET ${fields.join(', ')} WHERE id = ?`, params);
+  const [result] = await exec.execute(`UPDATE banners SET ${fields.join(', ')} WHERE id = ?`, params);
   return result.affectedRows > 0;
 };
 
-export const softDelete = async (id) => {
-  const [result] = await pool.execute(
+export const softDelete = async (id, conn = null) => {
+  const exec = conn || pool;
+  const [result] = await exec.execute(
     `UPDATE banners SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL`,
     [id]
   );
   return result.affectedRows > 0;
 };
 
-export const shiftUp = async (sortOrder, excludeId = null) => {
+export const shiftUp = async (sortOrder, excludeId = null, conn = null) => {
+  const exec = conn || pool;
   const params = [sortOrder];
   let sql = `UPDATE banners SET sort_order = sort_order + 1 WHERE sort_order >= ? AND deleted_at IS NULL`;
   if (excludeId) {
     sql += ` AND id != ?`;
     params.push(excludeId);
   }
-  await pool.execute(sql, params);
+  await exec.execute(sql, params);
 };
 
-export const shiftDown = async (sortOrder) => {
-  await pool.execute(
+export const shiftDown = async (sortOrder, conn = null) => {
+  const exec = conn || pool;
+  await exec.execute(
     `UPDATE banners SET sort_order = sort_order - 1 WHERE sort_order > ? AND deleted_at IS NULL`,
     [sortOrder]
   );
@@ -83,10 +88,29 @@ export const findDeletedById = async (id) => {
   return rows[0];
 };
 
-export const restore = async (id, sortOrder) => {
-  const [result] = await pool.execute(
+export const restore = async (id, sortOrder, conn = null) => {
+  const exec = conn || pool;
+  const [result] = await exec.execute(
     `UPDATE banners SET deleted_at = NULL, sort_order = ? WHERE id = ? AND deleted_at IS NOT NULL`,
     [sortOrder, id]
   );
   return result.affectedRows > 0;
+};
+
+export const existsAtOrAbove = async (sortOrder, conn = null) => {
+  const exec = conn || pool;
+  const [rows] = await exec.query(
+    `SELECT id FROM banners WHERE sort_order >= ? AND deleted_at IS NULL FOR UPDATE`,
+    [sortOrder]
+  );
+  return rows.length > 0;
+};
+
+export const existsInRange = async (from, to, excludeId, conn = null) => {
+  const exec = conn || pool;
+  const [rows] = await exec.query(
+    `SELECT id FROM banners WHERE sort_order >= ? AND sort_order <= ? AND id != ? AND deleted_at IS NULL FOR UPDATE`,
+    [from, to, excludeId]
+  );
+  return rows.length > 0;
 };

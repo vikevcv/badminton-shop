@@ -7,15 +7,15 @@ Nền tảng thương mại điện tử full-stack cho thiết bị cầu lông
 ## Công nghệ
 
 - **Backend**: Node.js, Express 5
-- **Database**: MySQL 8 (`mysql2`, `express-mysql-session`)
-- **Auth**: JWT (API) + Session (Web SSR), token_version force-logout
+- **Database**: MySQL 8 (`mysql2`)
+- **Auth**: JWT (access + refresh tokens, HttpOnly cookies), token_version force-logout
 - **Template**: Handlebars (`express-handlebars`)
 - **Email**: Nodemailer + Brevo SMTP
 - **Logger**: Morgan
 
 ## Tính năng
 
-- **Auth** — Đăng ký, đăng nhập, hồ sơ, đổi mật khẩu, quên/đặt lại mật khẩu (email), đăng xuất (blacklist token)
+- **Auth** — Đăng ký, đăng nhập, hồ sơ, đổi mật khẩu, quên/đặt lại mật khẩu (email), đăng xuất (token_version force-logout)
 - **Sản phẩm** — CRUD, biến thể (SKU), hình ảnh, tìm kiếm/lọc, phân trang, sắp xếp theo độ phổ biến
 - **Danh mục & Thương hiệu** — CRUD, soft delete/restore
 - **Giỏ hàng** — Thêm, sửa số lượng, xóa, xóa tất cả (an toàn với race condition)
@@ -55,7 +55,8 @@ Sao chép `.env` và cấu hình:
 | `SMTP_HOST` `SMTP_PORT` `SMTP_USER` `SMTP_PASS` | SMTP (Brevo hoặc nhà cung cấp khác) |
 | `JWT_SECRET` | Chuỗi bí mật cho JWT |
 | `APP_URL` | Ví dụ: `http://localhost:3000` |
-| `SESSION_SECRET` | Chuỗi bí mật cho session cookie |
+| `JWT_ACCESS_EXPIRES` | Thời gian sống của access token (mặc định `30m`) |
+| `JWT_REFRESH_EXPIRES` | Thời gian sống của refresh token (mặc định `7d`) |
 
 ### Database
 
@@ -88,6 +89,7 @@ npm start      # Production
 ### Xác thực
 
 Tất cả endpoint cần bảo vệ đều yêu cầu header `Authorization: Bearer <token>`.
+Refresh token được lưu trong HttpOnly signed cookies (`accessToken` + `refreshToken`) cho browser, và trả về trong response body cho mobile/SPA.
 
 ### Base URL
 
@@ -99,7 +101,7 @@ http://localhost:3000/api
 
 | Nhóm       | Endpoints |
 |------------|-----------|
-| Auth       | `POST /auth/register`, `/auth/login`, `GET /auth/me`, `PUT /auth/me`, `PUT /auth/change-password`, `POST /auth/logout`, `POST /auth/forgot-password`, `POST /auth/reset-password` |
+| Auth       | `POST /auth/register`, `/auth/login`, `POST /auth/refresh`, `GET /auth/me`, `PUT /auth/me`, `PUT /auth/change-password`, `POST /auth/logout`, `POST /auth/forgot-password`, `POST /auth/reset-password` |
 | Sản phẩm   | `GET /products`, `GET /products/search`, `GET /products/:slug`, `GET /products/newest/:categorySlug`, `POST /products`, `PUT /products/:id`, `DELETE /products/:id`, `PUT /products/:id/restore` |
 | Giỏ hàng   | `GET /cart`, `POST /cart/items`, `PUT /cart/items/:id`, `DELETE /cart/items/:id`, `DELETE /cart` |
 | Đơn hàng   | `POST /orders`, `GET /orders`, `GET /orders/all`, `GET /orders/:code`, `POST /orders/:code/cancel`, `PUT /orders/:code/status`, `PUT /orders/:code/tracking` |
@@ -117,7 +119,7 @@ src/
 ├── controllers/      # Xử lý request (API + Web SSR)
 ├── database/         # SQL schema, seed
 ├── helpers/          # Hàm trả response (sendSuccess, sendError)
-├── middlewares/      # Auth (JWT/session), error handler, validate
+├── middlewares/      # Auth (JWT, cookies), error handler, validate
 ├── models/           # Truy vấn database
 ├── routes/           # Định nghĩa route Express
 ├── services/         # Logic nghiệp vụ

@@ -21,7 +21,8 @@ export const findByPaymentCode = async (paymentCode) => {
   return rows[0];
 };
 
-export const updateStatus = async (id, status, transactionId = null, gatewayResponse = null) => {
+export const updateStatus = async (id, status, transactionId = null, gatewayResponse = null, conn = null) => {
+  const exec = conn || pool;
   const params = [status];
   let query = `UPDATE payments SET status = ?`;
 
@@ -39,7 +40,7 @@ export const updateStatus = async (id, status, transactionId = null, gatewayResp
 
   query += ` WHERE id = ?`;
   params.push(id);
-  await pool.execute(query, params);
+  await exec.execute(query, params);
 };
 
 export const findByOrderId = async (orderId) => {

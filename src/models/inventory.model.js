@@ -1,8 +1,18 @@
 import pool from '../config/database.js';
 
-export const findByVariantId = async (variantId) => {
-  const [rows] = await pool.query(
+export const findByVariantId = async (variantId, conn = null) => {
+  const exec = conn || pool;
+  const [rows] = await exec.query(
     `SELECT * FROM inventories WHERE variant_id = ?`,
+    [variantId]
+  );
+  return rows[0];
+};
+
+export const findByVariantIdForUpdate = async (variantId, conn = null) => {
+  const exec = conn || pool;
+  const [rows] = await exec.query(
+    `SELECT * FROM inventories WHERE variant_id = ? FOR UPDATE`,
     [variantId]
   );
   return rows[0];
@@ -15,6 +25,34 @@ export const addStock = async (variantId, quantity, conn = null) => {
     [quantity, variantId]
   );
   return result.affectedRows > 0;
+};
+
+export const setQuantity = async (variantId, quantity, conn = null) => {
+  const exec = conn || pool;
+  await exec.execute(
+    `UPDATE inventories SET quantity = ? WHERE variant_id = ?`,
+    [quantity, variantId]
+  );
+};
+
+export const decrementStock = async (variantId, quantity, conn = null) => {
+  const exec = conn || pool;
+  const [result] = await exec.execute(
+    `UPDATE inventories SET quantity = quantity - ? WHERE variant_id = ? AND quantity >= ?`,
+    [quantity, variantId, quantity]
+  );
+  return result.affectedRows > 0;
+};
+
+export const logTransaction = async (data, conn = null) => {
+  const exec = conn || pool;
+  await exec.execute(
+    `INSERT INTO inventory_transactions (variant_id, transaction_type, quantity, reference_type, reference_id, note, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [data.variant_id, data.transaction_type, data.quantity,
+     data.reference_type || 'manual', data.reference_id || null,
+     data.note || null, data.created_by || null]
+  );
 };
 
 export const createInventory = async (variantId, quantity = 0) => {
@@ -64,23 +102,6 @@ export const findAllWithProduct = async (page = 1, limit = 20, filters = {}) => 
     [...params, Number(limit), Number(offset)]
   );
   return { items: rows, total };
-};
-
-export const updateStockQuantity = async (variantId, quantity) => {
-  await pool.execute(
-    `UPDATE inventories SET quantity = ? WHERE variant_id = ?`,
-    [quantity, variantId]
-  );
-};
-
-export const logTransaction = async (data) => {
-  await pool.execute(
-    `INSERT INTO inventory_transactions (variant_id, transaction_type, quantity, reference_type, reference_id, note, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [data.variant_id, data.transaction_type, data.quantity,
-     data.reference_type || 'manual', data.reference_id || null,
-     data.note || null, data.created_by || null]
-  );
 };
 
 export const getTransactions = async (page = 1, limit = 20, filters = {}) => {

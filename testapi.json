@@ -13,6 +13,18 @@
       "value": ""
     },
     {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "oldRefreshToken",
+      "value": ""
+    },
+    {
       "key": "webhookSecret",
       "value": "webhook_secret_change_me"
     }
@@ -90,8 +102,10 @@
               "script": {
                 "exec": [
                   "var jsonData = pm.response.json();",
-                  "if (jsonData.data && jsonData.data.token) {",
-                  "  pm.collectionVariables.set('token', jsonData.data.token);",
+                  "if (jsonData.data && jsonData.data.accessToken) {",
+                  "  pm.collectionVariables.set('accessToken', jsonData.data.accessToken);",
+                  "  pm.collectionVariables.set('token', jsonData.data.accessToken);",
+                  "  pm.collectionVariables.set('refreshToken', jsonData.data.refreshToken);",
                   "}"
                 ]
               }
@@ -124,7 +138,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"token\": \"your-jwt-token-here\",\n    \"user\": {\n      \"id\": 1,\n      \"fullName\": \"Nguyen Van An\",\n      \"email\": \"nguyenvanan@gmail.com\",\n      \"phone\": \"0912345678\",\n      \"role\": \"customer\"\n    }\n  },\n  \"message\": \"Đăng nhập thành công!\"\n}"
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"accessToken\": \"your-jwt-access-token-here\",\n    \"refreshToken\": \"your-refresh-token-here\",\n    \"user\": {\n      \"id\": 1,\n      \"fullName\": \"Nguyen Van An\",\n      \"email\": \"nguyenvanan@gmail.com\",\n      \"phone\": \"0912345678\",\n      \"role\": \"customer\"\n    }\n  },\n  \"message\": \"Đăng nhập thành công!\"\n}"
             },
             {
               "name": "Sai thông tin",
@@ -153,6 +167,103 @@
                 }
               ],
               "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Tài khoản của bạn đã bị khóa vi phạm!\",\n  \"errors\": []\n}"
+            }
+          ]
+        },
+        {
+          "name": "1. Refresh Token (hợp lệ)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.accessToken) {",
+                  "  var oldRefresh = pm.collectionVariables.get('refreshToken');",
+                  "  pm.collectionVariables.set('oldRefreshToken', oldRefresh);",
+                  "  pm.collectionVariables.set('accessToken', jsonData.data.accessToken);",
+                  "  pm.collectionVariables.set('token', jsonData.data.accessToken);",
+                  "  pm.collectionVariables.set('refreshToken', jsonData.data.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/auth/refresh",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            }
+          },
+          "response": [
+            {
+              "name": "Làm mới token thành công",
+              "originalRequest": null,
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"accessToken\": \"new-jwt-access-token-here\",\n    \"refreshToken\": \"new-refresh-token-here\"\n  },\n  \"message\": \"Làm mới token thành công\"\n}"
+            },
+            {
+              "name": "Refresh token không hợp lệ",
+              "originalRequest": null,
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Refresh token không hợp lệ hoặc đã hết hạn\",\n  \"errors\": []\n}"
+            }
+          ]
+        },
+        {
+          "name": "2. Verify Rotation (token cũ → 401)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/auth/refresh",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{oldRefreshToken}}\"\n}"
+            }
+          },
+          "response": [
+            {
+              "name": "Token cũ bị từ chối",
+              "originalRequest": null,
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Refresh token không hợp lệ hoặc đã hết hạn\",\n  \"errors\": []\n}"
             }
           ]
         },

@@ -4,12 +4,12 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { engine } from 'express-handlebars';
-import session from 'express-session';
-import connectMySQLStore from 'express-mysql-session';
+import cookieParser from 'cookie-parser';
 
 import pool, { testConnection } from './config/database.js';
 import { errorHandler } from './middlewares/error.middleware.js';
 import { notFoundHandler } from './middlewares/notFound.middleware.js';
+import { setViewLocals } from './middlewares/auth.middleware.js';
 import webRoutes from './routes/web.routes.js';
 import apiRoutes from './routes/api/index.js';
 
@@ -32,30 +32,9 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 app.use(morgan('dev'));
 
-// 3. Session (MySQL)
-const MySQLStore = connectMySQLStore(session);
-const sessionStore = new MySQLStore({
-  clearExpired: true,
-  checkExpirationInterval: 900000,
-  expiration: 86400000
-}, pool);
+app.use(cookieParser(process.env.REFRESH_COOKIE_SECRET));
 
-app.use(
-  session({
-    key: 'badminton_shop_session',
-    secret: process.env.SESSION_SECRET,
-    store: sessionStore,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 1000 * 60 * 60 * 24
-    }
-  })
-);
-
-// 4. Template Engine
+// 3. Template Engine
 app.engine(
   '.hbs',
   engine({
@@ -71,11 +50,8 @@ app.engine(
 app.set('view engine', '.hbs');
 app.set('views', path.join(__dirname, 'views'));
 
-// Locals
-app.use((req, res, next) => {
-  res.locals.user = req.session.user || null;
-  next();
-});
+// 4. Set res.locals.user cho Handlebars templates
+app.use(setViewLocals);
 
 // 5. Routes
 app.use('/api', apiRoutes);
@@ -91,3 +67,17 @@ app.listen(PORT, () => {
   // eslint-disable-next-line no-console
   console.log(`🚀 Server is running in ${process.env.NODE_ENV} mode on http://localhost:${PORT}`);
 });
+
+// 8. Cleanup expired tokens every hour
+const CLEANUP_INTERVAL = 60 * 60 * 1000;
+setInterval(async () => {
+  try {
+    const { default: refreshTokenModel } = await import('./models/refresh-token.model.js');
+    const cleaned = await refreshTokenModel.cleanExpired();
+    if (cleaned > 0) {
+      console.log(`🧹 Cleaned ${cleaned} expired refresh tokens`);
+    }
+  } catch (_) {
+    // Silently ignore cleanup errors
+  }
+}, CLEANUP_INTERVAL);
