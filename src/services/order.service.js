@@ -321,8 +321,9 @@ export const updateOrderStatus = async (orderCode, newStatus, changedBy = null, 
   return true;
 };
 
-const rollbackOrderResources = async (order, items, conn, userId, transactionType, note) => {
+export const rollbackOrderResources = async (order, items, conn, userId, transactionType, note) => {
   for (const item of items) {
+    await inventoryModel.findByVariantIdForUpdate(item.variant_id, conn);
     const added = await inventoryModel.addStock(item.variant_id, item.quantity, conn);
     if (!added) {
       const error = new Error(`Không tìm thấy kho hàng cho biến thể ${item.variant_id}`);
@@ -341,6 +342,7 @@ const rollbackOrderResources = async (order, items, conn, userId, transactionTyp
   }
 
   if (order.voucher_id) {
+    await voucherModel.lockById(order.voucher_id, conn);
     await voucherModel.decrementUsedCount(order.voucher_id, conn);
   }
 

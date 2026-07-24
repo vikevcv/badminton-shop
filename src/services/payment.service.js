@@ -1,10 +1,7 @@
 import pool from '../config/database.js';
 import * as paymentModel from '../models/payment.model.js';
 import * as orderModel from '../models/order.model.js';
-import * as inventoryModel from '../models/inventory.model.js';
-import * as voucherModel from '../models/voucher.model.js';
-import * as customerProfileModel from '../models/customer-profile.model.js';
-import { VALID_TRANSITIONS, STATUS_LABELS } from './order.service.js';
+import { VALID_TRANSITIONS, STATUS_LABELS, rollbackOrderResources } from './order.service.js';
 
 const VALID_CALLBACK_STATUSES = ['success', 'failed', 'expired', 'refunded'];
 
@@ -164,29 +161,9 @@ export const handleCallback = async (data, headers = {}) => {
     }
 
     if (status === 'refunded') {
-      if (order.status === 'confirmed' || order.status === 'completed') {
+      if (['confirmed', 'completed', 'preparing', 'shipping'].includes(order.status)) {
         const items = await orderModel.findItemsByOrderId(order.id);
-        for (const item of items) {
-          await inventoryModel.findByVariantIdForUpdate(item.variant_id, conn);
-          await inventoryModel.addStock(item.variant_id, item.quantity, conn);
-          await inventoryModel.logTransaction({
-            variant_id: item.variant_id,
-            transaction_type: 'refund',
-            quantity: item.quantity,
-            reference_type: 'order',
-            reference_id: order.id,
-            note: `Hoàn tiền đơn hàng ${order.order_code}`
-          }, conn);
-        }
-
-        if (order.voucher_id) {
-          await voucherModel.lockById(order.voucher_id, conn);
-          await voucherModel.decrementUsedCount(order.voucher_id, conn);
-        }
-
-        await customerProfileModel.updateTotalSpent(
-          order.user_id, -parseFloat(order.final_amount), conn
-        );
+        await rollbackOrderResources(order, items, conn, null, 'refund', `Hoàn tiền đơn hàng ${order.order_code}`);
       }
 
       const prevStatus = order.status;
