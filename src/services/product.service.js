@@ -1,6 +1,5 @@
 import slugify from 'slugify';
 import path from 'path';
-import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
 import * as productModel from '../models/product.model.js';
 import * as inventoryModel from '../models/inventory.model.js';
@@ -14,33 +13,8 @@ const generateSlug = (name) => {
   return slugify(name, { lower: true, strict: true, locale: 'vi' });
 };
 
-const getImageDest = async (product, ext, sortOrder) => {
-  const relativeDir = `/images/products/${product.category_slug}/${product.slug}`;
-  const absoluteDir = path.join(__dirname, '../../public', relativeDir);
-  await fs.mkdir(absoluteDir, { recursive: true });
-
-  let filename = `${sortOrder}${ext}`;
-  let absolutePath = path.join(absoluteDir, filename);
-  let counter = 0;
-  while (true) {
-    try {
-      await fs.access(absolutePath);
-      counter++;
-      filename = `${sortOrder}-${counter}${ext}`;
-      absolutePath = path.join(absoluteDir, filename);
-    } catch {
-      break;
-    }
-  }
-
-  return { relativeUrl: `${relativeDir}/${filename}`, absolutePath };
-};
-
-const moveFile = async (file, product, sortOrder = 0) => {
-  const ext = path.extname(file.originalname).toLowerCase();
-  const dest = await getImageDest(product, ext, sortOrder);
-  await fs.rename(file.path, dest.absolutePath);
-  return dest.relativeUrl;
+const getLocalPath = (file) => {
+  return file ? path.join(__dirname, '../../public/uploads', path.basename(file.path)) : null;
 };
 
 const validateVariantOwnership = async (productId, variantId) => {
@@ -146,7 +120,7 @@ export const getProductDetail = async (slug) => {
         price: row.price,
         formattedPrice: formatVND(row.price),
         stock_quantity: row.stock_quantity,
-        variant_name: attrValue || row.sku 
+        variant_name: attrValue || row.sku
       });
     } else {
       if (attrValue) {
@@ -158,8 +132,8 @@ export const getProductDetail = async (slug) => {
 
   const variants = Array.from(variantMap.values());
 
-  const defaultPrice = variants.length > 0 
-    ? Math.min(...variants.map(v => parseFloat(v.price))) 
+  const defaultPrice = variants.length > 0
+    ? Math.min(...variants.map(v => parseFloat(v.price)))
     : 0;
 
   return {
@@ -197,7 +171,7 @@ export const getFilteredProducts = async (queryObj) => {
   };
 
   const result = await productModel.searchAndFilterProducts(params);
-  
+
   const formattedProducts = result.products.map((product) => ({
     ...product,
     formattedPrice: formatVND(product.price),
@@ -239,13 +213,14 @@ export const createProduct = async (data, file) => {
   });
 
   if (file) {
-    const product = await productModel.findProductById(productId);
-    const imageUrl = await moveFile(file, product, 0);
+    const localPath = getLocalPath(file);
     await productModel.addImage({
       product_id: productId,
-      image_url: imageUrl,
+      image_url: '/images/default-racket.png',
       is_thumbnail: true,
-      sort_order: 0
+      sort_order: 0,
+      upload_status: 'pending_upload',
+      local_path: localPath,
     });
   }
 
@@ -366,16 +341,19 @@ export const addImage = async (productId, file, isThumbnail, variantId = null) =
 
   const nextSort = (await productModel.findMaxSortOrder(productId)) + 1;
 
-  const imageUrl = await moveFile(file, product, nextSort);
+  const localPath = getLocalPath(file);
 
   const imageId = await productModel.addImage({
     product_id: productId,
     variant_id: variantId || null,
-    image_url: imageUrl,
+    image_url: '/images/default-racket.png',
     is_thumbnail: parsedThumbnail,
-    sort_order: nextSort
+    sort_order: nextSort,
+    upload_status: 'pending_upload',
+    local_path: localPath,
   });
-  return { imageId, imageUrl };
+
+  return { imageId, imageUrl: '/images/default-racket.png' };
 };
 
 export const deleteImage = async (productId, imageId, deletedBy = null) => {
@@ -392,14 +370,6 @@ export const deleteImage = async (productId, imageId, deletedBy = null) => {
   }
 
   await productModel.deleteImage(imageId, deletedBy);
-
-  if (image.image_url) {
-    const filePath = path.join(__dirname, '../../public', image.image_url);
-    try {
-      await fs.unlink(filePath);
-    } catch {
-    }
-  }
 };
 
 export const restoreImage = async (productId, imageId) => {
@@ -430,14 +400,12 @@ export const updateImage = async (productId, imageId, data, file = null) => {
   }
 
   if (file) {
-    const product = await productModel.findProductById(productId);
-    const sortOrder = data.sort_order !== undefined ? Number(data.sort_order) : image.sort_order;
-    const newImageUrl = await moveFile(file, product, sortOrder);
-
-    const oldFilePath = path.join(__dirname, '../../public', image.image_url);
-    try { await fs.unlink(oldFilePath); } catch {}
-
-    data.image_url = newImageUrl;
+    const localPath = getLocalPath(file);
+    data.image_url = '/images/default-racket.png';
+    data.upload_status = 'pending_upload';
+    data.local_path = localPath;
+    data.retry_count = 0;
+    data.error_message = null;
   }
 
   if (data.is_thumbnail !== undefined) {

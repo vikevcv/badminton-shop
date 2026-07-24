@@ -29,8 +29,9 @@ export const findByIdAdmin = async (id, includeDeleted = false) => {
 export const create = async (data, conn = null) => {
   const exec = conn || pool;
   const [result] = await exec.execute(
-    `INSERT INTO banners (title, image_url, link_url, description, sort_order, status) VALUES (?, ?, ?, ?, ?, ?)`,
-    [data.title, data.image_url, data.link_url || null, data.description || null, data.sort_order || 0, data.status || 'active']
+    `INSERT INTO banners (title, image_url, link_url, description, sort_order, status, upload_status, local_path)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [data.title, data.image_url, data.link_url || null, data.description || null, data.sort_order || 0, data.status || 'active', data.upload_status || 'completed', data.local_path || null]
   );
   return result.insertId;
 };
@@ -39,7 +40,7 @@ export const update = async (id, data, conn = null) => {
   const exec = conn || pool;
   const fields = [];
   const params = [];
-  const allowed = ['title', 'image_url', 'link_url', 'description', 'sort_order', 'status'];
+  const allowed = ['title', 'image_url', 'link_url', 'description', 'sort_order', 'status', 'upload_status', 'local_path', 'cloud_public_id', 'retry_count', 'error_message'];
   for (const key of allowed) {
     if (data[key] !== undefined) {
       fields.push(`${key} = ?`);

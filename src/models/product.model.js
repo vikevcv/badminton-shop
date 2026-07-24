@@ -129,13 +129,13 @@ export const findThumbnailByProductId = async (productId) => {
 export const addImage = async (data) => {
   const sortOrder = data.sort_order !== undefined ? data.sort_order : (await findMaxSortOrder(data.product_id)) + 1;
   const [result] = await pool.execute(
-    `INSERT INTO product_images (product_id, variant_id, image_url, is_thumbnail, sort_order) VALUES (?, ?, ?, ?, ?)`,
-    [data.product_id, data.variant_id || null, data.image_url, data.is_thumbnail ? 1 : 0, sortOrder]
+    `INSERT INTO product_images (product_id, variant_id, image_url, is_thumbnail, sort_order, upload_status, local_path) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [data.product_id, data.variant_id || null, data.image_url, data.is_thumbnail ? 1 : 0, sortOrder, data.upload_status || 'completed', data.local_path || null]
   );
   return result.insertId;
 };
 
-const ALLOWED_IMAGE_FIELDS = ['image_url', 'is_thumbnail', 'sort_order', 'variant_id'];
+const ALLOWED_IMAGE_FIELDS = ['image_url', 'is_thumbnail', 'sort_order', 'variant_id', 'upload_status', 'local_path', 'cloud_public_id', 'retry_count', 'error_message'];
 
 export const updateImage = async (id, data) => {
   if (data.is_thumbnail) {

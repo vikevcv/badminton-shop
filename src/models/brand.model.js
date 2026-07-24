@@ -25,13 +25,13 @@ export const findByName = async (name) => {
 
 export const create = async (data) => {
   const [result] = await pool.execute(
-    `INSERT INTO brands (name, slug, logo_url, country, status) VALUES (?, ?, ?, ?, ?)`,
-    [data.name, data.slug, data.logo_url || null, data.country || null, data.status || 'active']
+    `INSERT INTO brands (name, slug, logo_url, upload_status, local_path, country, status) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [data.name, data.slug, data.logo_url || null, data.upload_status || 'completed', data.local_path || null, data.country || null, data.status || 'active']
   );
   return result.insertId;
 };
 
-const ALLOWED_UPDATE_FIELDS = ['name', 'slug', 'logo_url', 'country', 'status'];
+const ALLOWED_UPDATE_FIELDS = ['name', 'slug', 'logo_url', 'country', 'status', 'upload_status', 'local_path', 'cloud_public_id', 'retry_count', 'error_message'];
 
 export const update = async (id, data) => {
   const fields = [];

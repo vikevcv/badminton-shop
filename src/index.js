@@ -11,6 +11,7 @@ import { errorHandler } from './middlewares/error.middleware.js';
 import { notFoundHandler } from './middlewares/notFound.middleware.js';
 import { setViewLocals } from './middlewares/auth.middleware.js';
 import { cleanExpired } from './services/refresh-token.service.js';
+import { processPendingUploads } from './services/upload-worker.service.js';
 import webRoutes from './routes/web.routes.js';
 import apiRoutes from './routes/api/index.js';
 
@@ -81,3 +82,16 @@ setInterval(async () => {
     // Silently ignore cleanup errors
   }
 }, CLEANUP_INTERVAL);
+
+// 9. Upload worker — process pending Cloudinary uploads
+const UPLOAD_INTERVAL = parseInt(process.env.UPLOAD_WORKER_INTERVAL_MS, 10) || 5000;
+setInterval(async () => {
+  try {
+    const processed = await processPendingUploads();
+    if (processed > 0) {
+      console.log(`📤 Uploaded ${processed} files to Cloudinary`);
+    }
+  } catch (_) {
+    // Silently ignore upload worker errors
+  }
+}, UPLOAD_INTERVAL);

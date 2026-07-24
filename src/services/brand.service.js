@@ -1,37 +1,13 @@
 import slugify from 'slugify';
 import path from 'path';
-import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
 import * as brandModel from '../models/brand.model.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const normalizeName = (name) => {
-  return slugify(name, { lower: true, strict: true, locale: 'vi' });
-};
-
-const moveLogo = async (file, name) => {
-  const ext = path.extname(file.originalname).toLowerCase();
-  const baseName = normalizeName(name);
-  const relativeDir = `/images/brands`;
-  const absoluteDir = path.join(__dirname, '../../public', relativeDir);
-  await fs.mkdir(absoluteDir, { recursive: true });
-
-  const filename = `${baseName}${ext}`;
-  const absolutePath = path.join(absoluteDir, filename);
-
-  try {
-    const oldFiles = await fs.readdir(absoluteDir);
-    for (const f of oldFiles) {
-      if (f.startsWith(baseName + '.')) {
-        await fs.unlink(path.join(absoluteDir, f));
-      }
-    }
-  } catch {}
-
-  await fs.rename(file.path, absolutePath);
-  return `${relativeDir}/${filename}`;
+const getLocalPath = (file) => {
+  return file ? path.join(__dirname, '../../public/uploads', path.basename(file.path)) : null;
 };
 
 export const getAllBrands = async (includeInactive) => {
@@ -64,8 +40,23 @@ export const createBrand = async (data, file) => {
     throw error;
   }
 
-  const logoUrl = file ? await moveLogo(file, data.name) : null;
-  const brandId = await brandModel.create({ ...data, slug, logo_url: logoUrl });
+  let logoUrl = null;
+  let uploadStatus = 'completed';
+  let localPath = null;
+
+  if (file) {
+    logoUrl = '/images/default-brand.png';
+    uploadStatus = 'pending_upload';
+    localPath = getLocalPath(file);
+  }
+
+  const brandId = await brandModel.create({
+    ...data,
+    slug,
+    logo_url: logoUrl,
+    upload_status: uploadStatus,
+    local_path: localPath,
+  });
   return brandId;
 };
 
@@ -95,13 +86,11 @@ export const updateBrand = async (id, data, file) => {
   }
 
   if (file) {
-    const brandName = data.name || brand.name;
-    data.logo_url = await moveLogo(file, brandName);
-
-    if (brand.logo_url) {
-      const oldPath = path.join(__dirname, '../../public', brand.logo_url);
-      try { await fs.unlink(oldPath); } catch {}
-    }
+    data.logo_url = '/images/default-brand.png';
+    data.upload_status = 'pending_upload';
+    data.local_path = getLocalPath(file);
+    data.retry_count = 0;
+    data.error_message = null;
   }
 
   await brandModel.update(id, data);

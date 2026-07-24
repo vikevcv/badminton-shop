@@ -1,5 +1,15 @@
+import slugify from 'slugify';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import * as bannerModel from '../models/banner.model.js';
 import pool from '../config/database.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const getLocalPath = (file) => {
+  return file ? path.join(__dirname, '../../public/uploads', path.basename(file.path)) : null;
+};
 
 export const getAllBanners = async (displayDeleted = false) => {
   if (displayDeleted) {
@@ -23,10 +33,18 @@ export const getBannerDetail = async (id, displayDeleted = false) => {
   return banner;
 };
 
-export const createBanner = async (data) => {
+export const createBanner = async (data, file) => {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
+
+    if (file) {
+      data.image_url = '/images/default-banner.png';
+      data.upload_status = 'pending_upload';
+      data.local_path = getLocalPath(file);
+    } else {
+      data.upload_status = 'completed';
+    }
 
     const hasExisting = await bannerModel.existsAtOrAbove(data.sort_order || 0, conn);
     if (hasExisting) {
@@ -44,12 +62,20 @@ export const createBanner = async (data) => {
   }
 };
 
-export const updateBanner = async (id, data) => {
+export const updateBanner = async (id, data, file) => {
   const banner = await bannerModel.findByIdAdmin(id);
   if (!banner) {
     const error = new Error('Không tìm thấy banner');
     error.status = 404;
     throw error;
+  }
+
+  if (file) {
+    data.image_url = '/images/default-banner.png';
+    data.upload_status = 'pending_upload';
+    data.local_path = getLocalPath(file);
+    data.retry_count = 0;
+    data.error_message = null;
   }
 
   const newSortOrder = data.sort_order !== undefined ? data.sort_order : banner.sort_order;

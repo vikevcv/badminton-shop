@@ -27,6 +27,38 @@
     {
       "key": "webhookSecret",
       "value": "webhook_secret_change_me"
+    },
+    {
+      "key": "uploadProductId",
+      "value": ""
+    },
+    {
+      "key": "uploadProductSlug",
+      "value": ""
+    },
+    {
+      "key": "uploadBrandId",
+      "value": ""
+    },
+    {
+      "key": "uploadNewImageId",
+      "value": ""
+    },
+    {
+      "key": "uploadComplete",
+      "value": ""
+    },
+    {
+      "key": "brandUploadComplete",
+      "value": ""
+    },
+    {
+      "key": "uploadBannerId",
+      "value": ""
+    },
+    {
+      "key": "bannerUploadComplete",
+      "value": ""
     }
   ],
   "item": [
@@ -702,6 +734,19 @@
         },
         {
           "name": "Create Brand (admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.success && jsonData.data) {",
+                  "  pm.collectionVariables.set('brandId', jsonData.data.brandId);",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "url": "{{baseUrl}}/api/brands",
@@ -754,7 +799,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"brandId\": 3\n  },\n  \"message\": \"Tạo thương hiệu thành công\"\n}"
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"brandId\": 11\n  },\n  \"message\": \"Tạo thương hiệu thành công\"\n}\n\n// Note: Khi upload file logo, logo_url = '/images/default-brand.png', upload_status = 'pending_upload'\n// Background worker sẽ upload lên Cloudinary và cập nhật logo_url = Cloudinary URL"
             },
             {
               "name": "Không có token",
@@ -1682,6 +1727,20 @@
         },
         {
           "name": "Create Product (staff, admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.success && jsonData.data) {",
+                  "  pm.collectionVariables.set('productId', jsonData.data.productId);",
+                  "  pm.collectionVariables.set('productSlug', jsonData.data.slug);",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "url": "{{baseUrl}}/api/products",
@@ -1733,7 +1792,7 @@
           },
           "response": [
             {
-              "name": "Thành công",
+              "name": "Thành công (upload_async)",
               "originalRequest": null,
               "status": "Created",
               "code": 201,
@@ -1744,7 +1803,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"productId\": 5,\n    \"slug\": \"voi-yonex-nanoflare-1000\"\n  },\n  \"message\": \"Tạo sản phẩm thành công\"\n}"
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"productId\": 31,\n    \"slug\": \"voi-yonex-nanoflare-1000\"\n  },\n  \"message\": \"Tạo sản phẩm thành công\"\n}\n\n// Note: Ảnh sẽ được upload lên Cloudinary nền (background worker)\n// image_url ban đầu = '/images/default-racket.png', upload_status = 'pending_upload'\n// Sau ~5-10s worker sẽ cập nhật image_url thành URL Cloudinary\n// Dùng GET /api/products/:slug?display_deleted=true để kiểm tra upload_status"
             },
             {
               "name": "Không có token",
@@ -2299,6 +2358,19 @@
         },
         {
           "name": "Add Image (staff, admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.success && jsonData.data) {",
+                  "  pm.collectionVariables.set('imageId', jsonData.data.imageId);",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "url": "{{baseUrl}}/api/products/1/images",
@@ -2346,7 +2418,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"imageId\": 3,\n    \"imageUrl\": \"/images/products/vo-cau-long/voi-yonex-nanoflare-1000/1.png\"\n  },\n  \"message\": \"Thêm ảnh thành công\"\n}"
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"imageId\": 136,\n    \"imageUrl\": \"/images/default-racket.png\"\n  },\n  \"message\": \"Thêm ảnh thành công\"\n}\n\n// Note: image_url ban đầu = placeholder, upload_status = 'pending_upload'\n// Background worker sẽ upload lên Cloudinary và cập nhật image_url = Cloudinary URL\n// Check GET /api/products/:slug?display_deleted=true để xem upload_status"
             },
             {
               "name": "Không có token",
@@ -6716,6 +6788,19 @@
         },
         {
           "name": "Create Banner (admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.success && jsonData.data) {",
+                  "  pm.collectionVariables.set('bannerId', jsonData.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "url": "{{baseUrl}}/api/banners",
@@ -6726,17 +6811,43 @@
               },
               {
                 "key": "Content-Type",
-                "value": "application/json"
+                "value": "multipart/form-data"
               }
             ],
             "body": {
-              "mode": "raw",
-              "raw": "{\n  \"title\": \"Khuyến mãi mùa hè\",\n  \"image_url\": \"https://via.placeholder.com/1200x400\",\n  \"link_url\": \"/products\",\n  \"description\": \"Giảm giá 20% tất cả sản phẩm\",\n  \"sort_order\": 1\n}"
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "title",
+                  "value": "Khuyến mãi mùa hè",
+                  "type": "text"
+                },
+                {
+                  "key": "link_url",
+                  "value": "/products",
+                  "type": "text"
+                },
+                {
+                  "key": "description",
+                  "value": "Giảm giá 20% tất cả sản phẩm",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_order",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
             }
           },
           "response": [
             {
-              "name": "Thành công",
+              "name": "Thành công (upload_async)",
               "originalRequest": null,
               "status": "Created",
               "code": 201,
@@ -6747,7 +6858,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": 5\n  },\n  \"message\": \"Tạo banner thành công\"\n}"
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": 5\n  },\n  \"message\": \"Tạo banner thành công\"\n}\n\n// Note: Ảnh sẽ được upload lên Cloudinary nền (background worker)\n// image_url ban đầu = '/images/default-banner.png', upload_status = 'pending_upload'\n// Sau ~5-10s worker sẽ cập nhật image_url thành URL Cloudinary"
             },
             {
               "name": "Không có quyền",
@@ -6777,12 +6888,43 @@
               },
               {
                 "key": "Content-Type",
-                "value": "application/json"
+                "value": "multipart/form-data"
               }
             ],
             "body": {
-              "mode": "raw",
-              "raw": "{\n  \"title\": \"Khuyến mãi mới\",\n  \"image_url\": \"https://via.placeholder.com/1200x400\",\n  \"link_url\": \"/products\",\n  \"description\": \"Ưu đãi đặc biệt\",\n  \"sort_order\": 2,\n  \"status\": \"active\"\n}"
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "title",
+                  "value": "Khuyến mãi mới",
+                  "type": "text"
+                },
+                {
+                  "key": "link_url",
+                  "value": "/products",
+                  "type": "text"
+                },
+                {
+                  "key": "description",
+                  "value": "Ưu đãi đặc biệt",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_order",
+                  "value": "2",
+                  "type": "text"
+                },
+                {
+                  "key": "status",
+                  "value": "active",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
             }
           },
           "response": [
@@ -6949,6 +7091,884 @@
                 }
               ],
               "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Không tìm thấy banner đã xóa\",\n  \"errors\": []\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Upload Verification",
+      "item": [
+        {
+          "name": "1. Login as Admin (required for upload tests)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.accessToken) {",
+                  "  pm.collectionVariables.set('accessToken', jsonData.data.accessToken);",
+                  "  pm.collectionVariables.set('token', jsonData.data.accessToken);",
+                  "  pm.collectionVariables.set('refreshToken', jsonData.data.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/auth/login",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@badmintonshop.com\",\n  \"password\": \"123456\"\n}"
+            }
+          },
+          "response": [
+            {
+              "name": "Đăng nhập admin thành công",
+              "originalRequest": null,
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"accessToken\": \"...\",\n    \"refreshToken\": \"...\"\n  },\n  \"message\": \"Đăng nhập thành công!\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "2. Create Product with Image (async upload)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "pm.test('Status is 201', function() { pm.expect(pm.response.code).to.equal(201); });",
+                  "pm.test('Response has productId', function() { pm.expect(jsonData.data).to.have.property('productId'); });",
+                  "if (jsonData.success && jsonData.data) {",
+                  "  pm.collectionVariables.set('uploadProductId', jsonData.data.productId);",
+                  "  pm.collectionVariables.set('uploadProductSlug', jsonData.data.slug);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/products",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "name",
+                  "value": "Test Upload Product",
+                  "type": "text"
+                },
+                {
+                  "key": "category_id",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "brand_id",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "description",
+                  "value": "Sản phẩm test upload Cloudinary",
+                  "type": "text"
+                },
+                {
+                  "key": "status",
+                  "value": "active",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Thành công - ảnh đang chờ upload lên Cloudinary",
+              "originalRequest": null,
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"productId\": 31,\n    \"slug\": \"test-upload-product\"\n  },\n  \"message\": \"Tạo sản phẩm thành công\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "3. Check Product Image Upload Status (pending)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "pm.test('Response success', function() { pm.expect(jsonData.success).to.be.true; });",
+                  "if (jsonData.data && jsonData.data.images && jsonData.data.images.length > 0) {",
+                  "  var img = jsonData.data.images[0];",
+                  "  pm.test('Image has upload_status field', function() { pm.expect(img).to.have.property('upload_status'); });",
+                  "  pm.collectionVariables.set('uploadTestImageId', img.id);",
+                  "  console.log('upload_status:', img.upload_status);",
+                  "  console.log('image_url:', img.image_url);",
+                  "  if (img.upload_status === 'completed') {",
+                  "    console.log('Upload already completed! Cloudinary URL:', img.image_url);",
+                  "    pm.collectionVariables.set('uploadComplete', 'true');",
+                  "  } else if (img.upload_status === 'failed') {",
+                  "    console.log('Upload failed:', img.error_message);",
+                  "    pm.collectionVariables.set('uploadFailed', 'true');",
+                  "  } else {",
+                  "    console.log('Still pending...');",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/products/{{uploadProductSlug}}?display_deleted=true",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [
+            {
+              "name": "Thành công - kiểm tra upload_status",
+              "originalRequest": null,
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": 31,\n    \"name\": \"Test Upload Product\",\n    \"images\": [\n      {\n        \"id\": 136,\n        \"product_id\": 31,\n        \"image_url\": \"https://res.cloudinary.com/dynldcztc/image/upload/v.../badminton/products/abc123.jpg\",\n        \"is_thumbnail\": 1,\n        \"sort_order\": 0,\n        \"upload_status\": \"completed\",\n        \"local_path\": null,\n        \"error_message\": null,\n        \"cloud_public_id\": \"badminton/products/abc123\"\n      }\n    ]\n  },\n  \"message\": \"Lấy chi tiết sản phẩm thành công\"\n}\n\n// Sau 5-10s, worker sẽ upload xong:\n// upload_status: 'pending_upload' -> 'completed'\n// image_url: '/images/default-racket.png' -> 'https://res.cloudinary.com/...'\n// local_path: 'D:\\\\...\\\\public\\\\uploads\\\\tmp-xxx.jpg' -> null"
+            }
+          ]
+        },
+        {
+          "name": "4. Poll Upload Status (retry every 5s, max 60s)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.images && jsonData.data.images.length > 0) {",
+                  "  var img = jsonData.data.images[0];",
+                  "  if (img.upload_status === 'completed') {",
+                  "    pm.test('Upload COMPLETED!', function() {",
+                  "      pm.expect(img.image_url).to.include('cloudinary.com');",
+                  "      pm.expect(img.image_url).to.not.include('default-racket');",
+                  "      pm.expect(img.local_path).to.be.null;",
+                  "    });",
+                  "    pm.collectionVariables.set('uploadComplete', 'true');",
+                  "    console.log('✅ Cloudinary URL:', img.image_url);",
+                  "    console.log('   public_id:', img.cloud_public_id);",
+                  "  } else if (img.upload_status === 'failed') {",
+                  "    pm.test('Upload FAILED', function() { pm.expect.fail('Upload failed: ' + img.error_message); });",
+                  "  } else {",
+                  "    pm.test('Still pending...', function() { pm.expect(img.upload_status).to.equal('pending_upload'); });",
+                  "    console.log('⏳ upload_status:', img.upload_status, '| retry_count:', img.retry_count);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/products/{{uploadProductSlug}}?display_deleted=true",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [
+            {
+              "name": "Upload hoàn tất (Cloudinary URL)",
+              "originalRequest": null,
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"images\": [\n      {\n        \"image_url\": \"https://res.cloudinary.com/dynldcztc/image/upload/v123456/badminton/products/xxx.jpg\",\n        \"upload_status\": \"completed\",\n        \"local_path\": null,\n        \"cloud_public_id\": \"badminton/products/xxx\"\n      }\n    ]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "5. Add Image to Product (async upload)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "pm.test('Status is 201', function() { pm.expect(pm.response.code).to.equal(201); });",
+                  "if (jsonData.success && jsonData.data) {",
+                  "  pm.collectionVariables.set('uploadNewImageId', jsonData.data.imageId);",
+                  "  console.log('New imageId:', jsonData.data.imageId);",
+                  "  console.log('imageUrl (placeholder):', jsonData.data.imageUrl);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/products/{{uploadProductId}}/images",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": ""
+                },
+                {
+                  "key": "is_thumbnail",
+                  "value": "false",
+                  "type": "text"
+                },
+                {
+                  "key": "variant_id",
+                  "value": "",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Thành công - thêm ảnh mới (pending_upload)",
+              "originalRequest": null,
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"imageId\": 137,\n    \"imageUrl\": \"/images/default-racket.png\"\n  },\n  \"message\": \"Thêm ảnh thành công\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "6. Update Image with New File (async upload)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function() { pm.expect(pm.response.code).to.equal(200); });",
+                  "var jsonData = pm.response.json();",
+                  "pm.test('Update success', function() { pm.expect(jsonData.success).to.be.true; });",
+                  "console.log('Image updated - new file will be uploaded asynchronously');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/products/{{uploadProductId}}/images/{{uploadNewImageId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": ""
+                },
+                {
+                  "key": "sort_order",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "is_thumbnail",
+                  "value": "false",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Thành công - thay ảnh (pending_upload mới)",
+              "originalRequest": null,
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": null,\n  \"message\": \"Cập nhật ảnh thành công\"\n}\n\n// File mới sẽ được upload lên Cloudinary (retry_count reset = 0)"
+            }
+          ]
+        },
+        {
+          "name": "7. Create Brand with Logo (async upload)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "pm.test('Status is 201', function() { pm.expect(pm.response.code).to.equal(201); });",
+                  "if (jsonData.success && jsonData.data) {",
+                  "  pm.collectionVariables.set('uploadBrandId', jsonData.data.brandId);",
+                  "  console.log('New brandId:', jsonData.data.brandId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/brands",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "name",
+                  "value": "Test Upload Brand",
+                  "type": "text"
+                },
+                {
+                  "key": "country",
+                  "value": "Việt Nam",
+                  "type": "text"
+                },
+                {
+                  "key": "status",
+                  "value": "active",
+                  "type": "text"
+                },
+                {
+                  "key": "logo",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Thành công - logo đang chờ upload lên Cloudinary",
+              "originalRequest": null,
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"brandId\": 11\n  },\n  \"message\": \"Tạo thương hiệu thành công\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "8. Check Brand Logo Upload Status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "pm.test('Response success', function() { pm.expect(jsonData.success).to.be.true; });",
+                  "if (jsonData.data) {",
+                  "  pm.test('Brand has upload_status', function() { pm.expect(jsonData.data).to.have.property('upload_status'); });",
+                  "  console.log('upload_status:', jsonData.data.upload_status);",
+                  "  console.log('logo_url:', jsonData.data.logo_url);",
+                  "  if (jsonData.data.upload_status === 'completed') {",
+                  "    pm.test('Logo uploaded to Cloudinary', function() {",
+                  "      pm.expect(jsonData.data.logo_url).to.include('cloudinary.com');",
+                  "    });",
+                  "    pm.collectionVariables.set('brandUploadComplete', 'true');",
+                  "  } else if (jsonData.data.upload_status === 'failed') {",
+                  "    console.log('Upload failed:', jsonData.data.error_message);",
+                  "  } else {",
+                  "    console.log('⏳ Still pending...');",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/brands/{{uploadBrandId}}"
+          },
+          "response": [
+            {
+              "name": "Thành công - brand có upload_status",
+              "originalRequest": null,
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": 11,\n    \"name\": \"Test Upload Brand\",\n    \"logo_url\": \"https://res.cloudinary.com/dynldcztc/image/upload/v.../badminton/brands/xxx.png\",\n    \"upload_status\": \"completed\",\n    \"local_path\": null,\n    \"cloud_public_id\": \"badminton/brands/xxx\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "9. Update Brand Logo (async upload)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function() { pm.expect(pm.response.code).to.equal(200); });",
+                  "var jsonData = pm.response.json();",
+                  "pm.test('Update success', function() { pm.expect(jsonData.success).to.be.true; });",
+                  "console.log('Brand logo updated - new file will be uploaded asynchronously');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/brands/{{uploadBrandId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "name",
+                  "value": "Test Upload Brand Updated",
+                  "type": "text"
+                },
+                {
+                  "key": "logo",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Thành công - logo mới đang upload",
+              "originalRequest": null,
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": null,\n  \"message\": \"Cập nhật thương hiệu thành công\"\n}\n\n// Logo mới upload lên Cloudinary, retry_count reset = 0"
+            }
+          ]
+        },
+        {
+          "name": "10. Cleanup - Delete Test Product",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function() { pm.expect(pm.response.code).to.equal(200); });",
+                  "console.log('Test product deleted successfully');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/products/{{uploadProductId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [
+            {
+              "name": "Xóa sản phẩm test",
+              "originalRequest": null,
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": null,\n  \"message\": \"Xóa sản phẩm thành công\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "11. Cleanup - Delete Test Brand",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function() { pm.expect(pm.response.code).to.equal(200); });",
+                  "console.log('Test brand deleted successfully');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/brands/{{uploadBrandId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [
+            {
+              "name": "Xóa thương hiệu test",
+              "originalRequest": null,
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": null,\n  \"message\": \"Xóa thương hiệu thành công\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "12. Create Banner with Image (async upload)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "pm.test('Status is 201', function() { pm.expect(pm.response.code).to.equal(201); });",
+                  "pm.test('Response has banner id', function() { pm.expect(jsonData.data).to.have.property('id'); });",
+                  "if (jsonData.success && jsonData.data) {",
+                  "  pm.collectionVariables.set('uploadBannerId', jsonData.data.id);",
+                  "  console.log('New bannerId:', jsonData.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/banners",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "title",
+                  "value": "Test Upload Banner",
+                  "type": "text"
+                },
+                {
+                  "key": "description",
+                  "value": "Banner test upload Cloudinary",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_order",
+                  "value": "99",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Thành công - ảnh đang chờ upload lên Cloudinary",
+              "originalRequest": null,
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": 99\n  },\n  \"message\": \"Tạo banner thành công\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "13. Check Banner Upload Status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "pm.test('Response success', function() { pm.expect(jsonData.success).to.be.true; });",
+                  "if (jsonData.data) {",
+                  "  pm.test('Banner has upload_status', function() { pm.expect(jsonData.data).to.have.property('upload_status'); });",
+                  "  console.log('upload_status:', jsonData.data.upload_status);",
+                  "  console.log('image_url:', jsonData.data.image_url);",
+                  "  if (jsonData.data.upload_status === 'completed') {",
+                  "    pm.test('Image uploaded to Cloudinary', function() {",
+                  "      pm.expect(jsonData.data.image_url).to.include('cloudinary.com');",
+                  "    });",
+                  "    pm.collectionVariables.set('bannerUploadComplete', 'true');",
+                  "  } else if (jsonData.data.upload_status === 'failed') {",
+                  "    console.log('Upload failed:', jsonData.data.error_message);",
+                  "  } else {",
+                  "    console.log('⏳ Still pending...');",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/banners/{{uploadBannerId}}?display_deleted=true",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [
+            {
+              "name": "Thành công - banner có upload_status",
+              "originalRequest": null,
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": 99,\n    \"title\": \"Test Upload Banner\",\n    \"image_url\": \"https://res.cloudinary.com/dynldcztc/image/upload/v.../badminton/banners/xxx.jpg\",\n    \"upload_status\": \"completed\",\n    \"local_path\": null,\n    \"cloud_public_id\": \"badminton/banners/xxx\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "14. Update Banner with New Image (async upload)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function() { pm.expect(pm.response.code).to.equal(200); });",
+                  "var jsonData = pm.response.json();",
+                  "pm.test('Update success', function() { pm.expect(jsonData.success).to.be.true; });",
+                  "console.log('Banner image updated - new file will be uploaded asynchronously');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/banners/{{uploadBannerId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "title",
+                  "value": "Test Upload Banner Updated",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Thành công - ảnh mới đang upload",
+              "originalRequest": null,
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": null,\n  \"message\": \"Cập nhật banner thành công\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "15. Cleanup - Delete Test Banner",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function() { pm.expect(pm.response.code).to.equal(200); });",
+                  "console.log('Test banner deleted successfully');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/banners/{{uploadBannerId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [
+            {
+              "name": "Xóa banner test",
+              "originalRequest": null,
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": null,\n  \"message\": \"Xóa banner thành công\"\n}"
             }
           ]
         }

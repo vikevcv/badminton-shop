@@ -9,6 +9,7 @@ Nền tảng thương mại điện tử full-stack cho thiết bị cầu lông
 - **Backend**: Node.js, Express 5
 - **Database**: MySQL 8 (`mysql2`)
 - **Auth**: JWT (access + refresh tokens, HttpOnly cookies), token_version force-logout
+- **Upload**: Multer (lưu tạm) + Cloudinary (worker upload nền)
 - **Template**: Handlebars (`express-handlebars`)
 - **Email**: Nodemailer + Brevo SMTP
 - **Logger**: Morgan
@@ -29,6 +30,7 @@ Nền tảng thương mại điện tử full-stack cho thiết bị cầu lông
 - **Dashboard Admin** — Doanh thu, đơn hàng/người dùng, sản phẩm bán chạy, biểu đồ doanh thu theo ngày
 - **Quản lý người dùng** — Khóa/mở khóa (force logout qua `token_version++`), đổi vai trò, danh sách/tìm kiếm
 - **Email** — Email chào mừng (đăng ký), email đặt lại mật khẩu
+- **Upload** — Async Cloudinary upload (sản phẩm, thương hiệu, banner). File tạm → worker upload nền → URL Cloudinary. Hỗ trợ retry khi lỗi.
 
 ## Bắt đầu nhanh
 
@@ -57,6 +59,11 @@ Sao chép `.env` và cấu hình:
 | `APP_URL` | Ví dụ: `http://localhost:3000` |
 | `JWT_ACCESS_EXPIRES` | Thời gian sống của access token (mặc định `30m`) |
 | `JWT_REFRESH_EXPIRES` | Thời gian sống của refresh token (mặc định `7d`) |
+| `CLOUDINARY_CLOUD_NAME` | Tên cloud Cloudinary |
+| `CLOUDINARY_API_KEY` | API key Cloudinary |
+| `CLOUDINARY_API_SECRET` | API secret Cloudinary |
+| `UPLOAD_WORKER_INTERVAL_MS` | Tần suất polling của worker (mặc định `5000`) |
+| `UPLOAD_MAX_RETRY` | Số lần retry tối đa cho upload lỗi (mặc định `3`) |
 
 ### Database
 
@@ -101,28 +108,37 @@ http://localhost:3000/api
 
 | Nhóm       | Endpoints |
 |------------|-----------|
-| Auth       | `POST /auth/register`, `/auth/login`, `POST /auth/refresh`, `GET /auth/me`, `PUT /auth/me`, `PUT /auth/change-password`, `POST /auth/logout`, `POST /auth/forgot-password`, `POST /auth/reset-password` |
+| Auth       | `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`, `GET /auth/me`, `PUT /auth/me`, `PUT /auth/change-password`, `POST /auth/logout`, `POST /auth/forgot-password`, `POST /auth/reset-password` |
 | Sản phẩm   | `GET /products`, `GET /products/search`, `GET /products/:slug`, `GET /products/newest/:categorySlug`, `POST /products`, `PUT /products/:id`, `DELETE /products/:id`, `PUT /products/:id/restore` |
+| Biến thể   | `POST /products/:id/variants`, `PUT /products/:id/variants/:vid`, `DELETE /products/:id/variants/:vid`, `PUT /products/:id/variants/:vid/restore` |
+| Ảnh SP     | `POST /products/:id/images`, `PUT /products/:id/images/:iid`, `DELETE /products/:id/images/:iid`, `PUT /products/:id/images/:iid/restore` |
+| Danh mục   | `GET /categories`, `GET /categories/:id`, `POST /categories`, `PUT /categories/:id`, `DELETE /categories/:id`, `PUT /categories/:id/restore` |
+| Thương hiệu| `GET /brands`, `GET /brands/:id`, `POST /brands`, `PUT /brands/:id`, `DELETE /brands/:id`, `PUT /brands/:id/restore` |
 | Giỏ hàng   | `GET /cart`, `POST /cart/items`, `PUT /cart/items/:id`, `DELETE /cart/items/:id`, `DELETE /cart` |
-| Đơn hàng   | `POST /orders`, `GET /orders`, `GET /orders/all`, `GET /orders/:code`, `POST /orders/:code/cancel`, `PUT /orders/:code/status`, `PUT /orders/:code/tracking` |
-| Banner     | `GET /banners`, `GET /banners/:id`, `POST /banners`, `PUT /banners/:id`, `DELETE /banners/:id`, `PUT /banners/:id/restore` |
+| Đơn hàng   | `POST /orders`, `GET /orders`, `GET /orders/all`, `GET /orders/:code`, `GET /orders/:code/status-history`, `GET /orders/:code/payments`, `PUT /orders/:code/status`, `PUT /orders/:code/tracking` |
+| Địa chỉ    | `GET /addresses`, `GET /addresses/:id`, `POST /addresses`, `PUT /addresses/:id`, `DELETE /addresses/:id`, `PUT /addresses/:id/restore` |
+| Thanh toán  | `POST /payments/manual`, `POST /payments/webhook` |
+| Voucher     | `GET /vouchers`, `GET /vouchers/:id`, `POST /vouchers`, `PUT /vouchers/:id`, `DELETE /vouchers/:id`, `PUT /vouchers/:id/restore` |
 | Đánh giá   | `GET /reviews/:productSlug`, `POST /reviews/:productSlug`, `PUT /reviews/:id`, `DELETE /reviews/:id` |
 | Yêu thích  | `GET /wishlist`, `POST /wishlist`, `DELETE /wishlist/:productId` |
-| Admin      | `GET /dashboard`, `GET /users`, `PUT /users/:id/ban`, `PUT /users/:id/unban`, `PUT /users/:id/role` |
-| ...        | Xem `testapi.json` để biết danh sách đầy đủ |
+| Banner     | `GET /banners`, `GET /banners/:id`, `POST /banners`, `PUT /banners/:id`, `DELETE /banners/:id`, `PUT /banners/:id/restore` |
+| Kho hàng   | `GET /inventory`, `POST /inventory/adjust`, `GET /inventory/transactions` |
+| Khách hàng | `GET /customers`, `GET /customers/:id`, `PUT /customers/:id/ban`, `PUT /customers/:id/unban` |
+| Dashboard  | `GET /dashboard` |
+| Users      | `GET /users`, `PUT /users/:id/ban`, `PUT /users/:id/unban`, `PUT /users/:id/role` |
+| Webhooks   | `POST /webhooks/payment` |
 
 ## Cấu trúc thư mục
 
 ```
 src/
-├── config/           # Cấu hình database, mail
+├── config/           # Cấu hình database, mail, Cloudinary
 ├── controllers/      # Xử lý request (API + Web SSR)
-├── database/         # SQL schema, seed
 ├── helpers/          # Hàm trả response (sendSuccess, sendError)
-├── middlewares/      # Auth (JWT, cookies), error handler, validate
+├── middlewares/      # Auth, error handler, validate, upload file (multer)
 ├── models/           # Truy vấn database
 ├── routes/           # Định nghĩa route Express
-├── services/         # Logic nghiệp vụ
+├── services/         # Logic nghiệp vụ + worker upload nền
 └── views/            # Template Handlebars (SSR + email)
     ├── layouts/
     ├── partials/
@@ -141,7 +157,7 @@ docker build -t badminton-shop .
 docker run -p 3000:3000 --env-file .env badminton-shop
 ```
 
-**Lưu ý**: Ảnh upload không được lưu vĩnh viễn trên Render. Dùng storage ngoài (Cloudinary, AWS S3) cho production.
+**Lưu ý**: Upload file sử dụng cơ chế async Cloudinary. Worker nền poll database mỗi 5 giây, upload file đang chờ lên Cloudinary, rồi dọn file tạm local. Cấu hình biến `CLOUDINARY_*` cho production.
 
 ## Giấy phép
 

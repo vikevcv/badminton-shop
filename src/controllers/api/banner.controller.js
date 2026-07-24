@@ -25,9 +25,15 @@ export const createBanner = async (req, res, next) => {
   try {
     const { title, image_url, link_url, description, sort_order } = req.body;
 
+    if (!req.file && !image_url) {
+      const error = new Error('Vui lòng chọn ảnh hoặc cung cấp image_url');
+      error.status = 400;
+      throw error;
+    }
+
     const id = await bannerService.createBanner({
       title, image_url, link_url, description, sort_order: parseInt(sort_order) || 0
-    });
+    }, req.file || null);
 
     sendSuccess(res, { id }, 'Tạo banner thành công', {}, 201);
   } catch (error) {
@@ -40,7 +46,7 @@ export const updateBanner = async (req, res, next) => {
     const data = { ...req.body };
     if (data.sort_order) data.sort_order = parseInt(data.sort_order);
 
-    await bannerService.updateBanner(req.params.id, data);
+    await bannerService.updateBanner(req.params.id, data, req.file || null);
     sendSuccess(res, null, 'Cập nhật banner thành công');
   } catch (error) {
     next(error);

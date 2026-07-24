@@ -9,6 +9,7 @@ Full-stack e-commerce platform for badminton equipment built with Node.js, Expre
 - **Backend**: Node.js, Express 5
 - **Database**: MySQL 8 (via `mysql2`)
 - **Auth**: JWT (access + refresh tokens, HttpOnly cookies), token_version force-logout
+- **Upload**: Multer (temp storage) + Cloudinary (async background worker)
 - **Template**: Handlebars (`express-handlebars`)
 - **Email**: Nodemailer + Brevo SMTP
 - **Logger**: Morgan
@@ -29,6 +30,7 @@ Full-stack e-commerce platform for badminton equipment built with Node.js, Expre
 - **Admin Dashboard** — Revenue, orders/users count, top products, revenue by day, status distribution
 - **User Management** — Ban/unban (force logout via `token_version++`), role change, list/search
 - **Email** — Welcome email (register), forgot password email
+- **Upload** — Async Cloudinary upload (products, brands, banners). File temp → background worker uploads → Cloudinary URL. Supports retry on failure.
 
 ## Quick Start
 
@@ -57,6 +59,11 @@ Copy `.env` and configure:
 | `APP_URL` | e.g. `http://localhost:3000` |
 | `JWT_ACCESS_EXPIRES` | Access token expiry (default `30m`) |
 | `JWT_REFRESH_EXPIRES` | Refresh token expiry (default `7d`) |
+| `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name |
+| `CLOUDINARY_API_KEY` | Cloudinary API key |
+| `CLOUDINARY_API_SECRET` | Cloudinary API secret |
+| `UPLOAD_WORKER_INTERVAL_MS` | Worker polling interval (default `5000`) |
+| `UPLOAD_MAX_RETRY` | Max retry for failed uploads (default `3`) |
 
 ### Database
 
@@ -101,28 +108,37 @@ http://localhost:3000/api
 
 | Group      | Endpoints |
 |------------|-----------|
-| Auth       | `POST /auth/register`, `/auth/login`, `POST /auth/refresh`, `GET /auth/me`, `PUT /auth/me`, `PUT /auth/change-password`, `POST /auth/logout`, `POST /auth/forgot-password`, `POST /auth/reset-password` |
+| Auth       | `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`, `GET /auth/me`, `PUT /auth/me`, `PUT /auth/change-password`, `POST /auth/logout`, `POST /auth/forgot-password`, `POST /auth/reset-password` |
 | Products   | `GET /products`, `GET /products/search`, `GET /products/:slug`, `GET /products/newest/:categorySlug`, `POST /products`, `PUT /products/:id`, `DELETE /products/:id`, `PUT /products/:id/restore` |
+| Variants   | `POST /products/:id/variants`, `PUT /products/:id/variants/:vid`, `DELETE /products/:id/variants/:vid`, `PUT /products/:id/variants/:vid/restore` |
+| Images     | `POST /products/:id/images`, `PUT /products/:id/images/:iid`, `DELETE /products/:id/images/:iid`, `PUT /products/:id/images/:iid/restore` |
+| Categories | `GET /categories`, `GET /categories/:id`, `POST /categories`, `PUT /categories/:id`, `DELETE /categories/:id`, `PUT /categories/:id/restore` |
+| Brands     | `GET /brands`, `GET /brands/:id`, `POST /brands`, `PUT /brands/:id`, `DELETE /brands/:id`, `PUT /brands/:id/restore` |
 | Cart       | `GET /cart`, `POST /cart/items`, `PUT /cart/items/:id`, `DELETE /cart/items/:id`, `DELETE /cart` |
-| Orders     | `POST /orders`, `GET /orders`, `GET /orders/all`, `GET /orders/:code`, `POST /orders/:code/cancel`, `PUT /orders/:code/status`, `PUT /orders/:code/tracking` |
-| Banners    | `GET /banners`, `GET /banners/:id`, `POST /banners`, `PUT /banners/:id`, `DELETE /banners/:id`, `PUT /banners/:id/restore` |
+| Orders     | `POST /orders`, `GET /orders`, `GET /orders/all`, `GET /orders/:code`, `GET /orders/:code/status-history`, `GET /orders/:code/payments`, `PUT /orders/:code/status`, `PUT /orders/:code/tracking` |
+| Addresses  | `GET /addresses`, `GET /addresses/:id`, `POST /addresses`, `PUT /addresses/:id`, `DELETE /addresses/:id`, `PUT /addresses/:id/restore` |
+| Payments   | `POST /payments/manual`, `POST /payments/webhook` |
+| Vouchers   | `GET /vouchers`, `GET /vouchers/:id`, `POST /vouchers`, `PUT /vouchers/:id`, `DELETE /vouchers/:id`, `PUT /vouchers/:id/restore` |
 | Reviews    | `GET /reviews/:productSlug`, `POST /reviews/:productSlug`, `PUT /reviews/:id`, `DELETE /reviews/:id` |
 | Wishlist   | `GET /wishlist`, `POST /wishlist`, `DELETE /wishlist/:productId` |
-| Admin      | `GET /dashboard`, `GET /users`, `PUT /users/:id/ban`, `PUT /users/:id/unban`, `PUT /users/:id/role` |
-| ...        | See `testapi.json` for full list |
+| Banners    | `GET /banners`, `GET /banners/:id`, `POST /banners`, `PUT /banners/:id`, `DELETE /banners/:id`, `PUT /banners/:id/restore` |
+| Inventory  | `GET /inventory`, `POST /inventory/adjust`, `GET /inventory/transactions` |
+| Customers  | `GET /customers`, `GET /customers/:id`, `PUT /customers/:id/ban`, `PUT /customers/:id/unban` |
+| Dashboard  | `GET /dashboard` |
+| Users      | `GET /users`, `PUT /users/:id/ban`, `PUT /users/:id/unban`, `PUT /users/:id/role` |
+| Webhooks   | `POST /webhooks/payment` |
 
 ## Project Structure
 
 ```
 src/
-├── config/           # Database, mail transporter
+├── config/           # Database, mail, Cloudinary
 ├── controllers/      # Route handlers (API + Web SSR)
-├── database/         # SQL schema, seed scripts
 ├── helpers/          # Response helpers (sendSuccess, sendError)
-├── middlewares/      # Auth (JWT, cookies), error handler, validation
+├── middlewares/      # Auth, error handler, validation, file upload (multer)
 ├── models/           # Data access layer (MySQL queries)
 ├── routes/           # Express route definitions
-├── services/         # Business logic layer
+├── services/         # Business logic + background upload worker
 └── views/            # Handlebars templates (SSR pages + email templates)
     ├── layouts/
     ├── partials/
@@ -141,7 +157,7 @@ docker build -t badminton-shop .
 docker run -p 3000:3000 --env-file .env badminton-shop
 ```
 
-**Note**: Uploaded images are not persisted on Render's ephemeral disk. Use external storage (Cloudinary, AWS S3) for production.
+**Note**: File uploads use async Cloudinary upload. The background worker polls the database every 5 seconds, uploads pending files to Cloudinary, then cleans up local temp files. Configure `CLOUDINARY_*` env variables for production.
 
 ## License
 
