@@ -90,3 +90,11 @@ export const lockById = async (id, conn = null) => {
   );
   return rows[0];
 };
+
+export const lockByCode = async (code, conn = null) => {
+  const exec = conn || pool;
+  const [rows] = await exec.query(
+    `SELECT * FROM vouchers WHERE code = ? AND deleted_at IS NULL FOR UPDATE`, [code]
+  );
+  return rows[0];
+};
