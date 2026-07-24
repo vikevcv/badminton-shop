@@ -58,7 +58,7 @@ export const deleteBanner = async (req, res, next) => {
 
 export const restoreBanner = async (req, res, next) => {
   try {
-    const sortOrder = req.body.sort_order ? parseInt(req.body.sort_order) : null;
+    const sortOrder = req.body?.sort_order ? parseInt(req.body.sort_order) : null;
     await bannerService.restoreBanner(req.params.id, sortOrder);
     sendSuccess(res, null, 'Khôi phục banner thành công');
   } catch (error) {

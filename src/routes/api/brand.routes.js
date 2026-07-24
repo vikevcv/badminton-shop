@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import * as brandController from '../../controllers/api/brand.controller.js';
-import { verifyToken, authorizeRoles } from '../../middlewares/auth.middleware.js';
+import { verifyToken, optionalAuth, authorizeRoles } from '../../middlewares/auth.middleware.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -32,7 +32,7 @@ const upload = multer({ storage, fileFilter, limits: { fileSize: 5 * 1024 * 1024
 
 const router = express.Router();
 
-router.get('/', brandController.getAllBrands);
+router.get('/', optionalAuth, brandController.getAllBrands);
 router.get('/:id', brandController.getBrand);
 router.post('/', verifyToken, authorizeRoles('admin'), upload.single('logo'), brandController.createBrand);
 router.put('/:id', verifyToken, authorizeRoles('admin'), upload.single('logo'), brandController.updateBrand);
