@@ -263,27 +263,7 @@ export const cancelOrder = async (orderCode, userId, cancelReason = null) => {
     await orderModel.addStatusHistory(order.id, oldStatus, 'cancelled', userId, null, conn);
 
     const items = await orderModel.findItemsByOrderId(order.id);
-    for (const item of items) {
-      const added = await inventoryModel.addStock(item.variant_id, item.quantity, conn);
-      if (!added) {
-        throw new Error(`Không tìm thấy kho hàng cho biến thể ${item.variant_id}`);
-      }
-      await inventoryModel.logTransaction({
-        variant_id: item.variant_id,
-        transaction_type: 'cancel_order',
-        quantity: item.quantity,
-        reference_type: 'order',
-        reference_id: order.id,
-        note: `Hủy đơn hàng ${orderCode}`,
-        created_by: userId
-      }, conn);
-    }
-
-    if (order.voucher_id) {
-      await voucherModel.decrementUsedCount(order.voucher_id, conn);
-    }
-
-    await customerProfileModel.updateTotalSpent(order.user_id, -parseFloat(order.final_amount), conn);
+    await rollbackOrderResources(order, items, conn, userId, 'cancel_order', `Hủy đơn hàng ${orderCode}`);
 
     await conn.commit();
   } catch (error) {
@@ -309,7 +289,9 @@ export const updateOrderStatus = async (orderCode, newStatus, changedBy = null, 
 
     const order = await orderModel.lockByOrderCode(orderCode, conn);
     if (!order) {
-      throw new Error('Không tìm thấy đơn hàng');
+      const error = new Error('Không tìm thấy đơn hàng');
+      error.status = 404;
+      throw error;
     }
 
     const allowed = VALID_TRANSITIONS[order.status];
@@ -323,6 +305,11 @@ export const updateOrderStatus = async (orderCode, newStatus, changedBy = null, 
 
     await orderModel.updateStatusWithHistory(order.id, order.status, newStatus, changedBy, note, conn);
 
+    if (newStatus === 'cancelled') {
+      const items = await orderModel.findItemsByOrderId(order.id);
+      await rollbackOrderResources(order, items, conn, changedBy, 'cancel_order', note || `Hủy đơn hàng ${orderCode}`);
+    }
+
     await conn.commit();
   } catch (error) {
     await conn.rollback();
@@ -332,6 +319,32 @@ export const updateOrderStatus = async (orderCode, newStatus, changedBy = null, 
   }
 
   return true;
+};
+
+const rollbackOrderResources = async (order, items, conn, userId, transactionType, note) => {
+  for (const item of items) {
+    const added = await inventoryModel.addStock(item.variant_id, item.quantity, conn);
+    if (!added) {
+      const error = new Error(`Không tìm thấy kho hàng cho biến thể ${item.variant_id}`);
+      error.status = 400;
+      throw error;
+    }
+    await inventoryModel.logTransaction({
+      variant_id: item.variant_id,
+      transaction_type: transactionType,
+      quantity: item.quantity,
+      reference_type: 'order',
+      reference_id: order.id,
+      note,
+      created_by: userId
+    }, conn);
+  }
+
+  if (order.voucher_id) {
+    await voucherModel.decrementUsedCount(order.voucher_id, conn);
+  }
+
+  await customerProfileModel.updateTotalSpent(order.user_id, -parseFloat(order.final_amount), conn);
 };
 
 export const getOrderStatusHistory = async (orderCode, userId = null) => {
