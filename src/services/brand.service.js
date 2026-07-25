@@ -2,6 +2,7 @@ import slugify from 'slugify';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import * as brandModel from '../models/brand.model.js';
+import { addUploadJob } from '../queues/upload.queue.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -57,6 +58,11 @@ export const createBrand = async (data, file) => {
     upload_status: uploadStatus,
     local_path: localPath,
   });
+
+  if (file) {
+    await addUploadJob({ table: 'brands', id: brandId, localPath, type: 'brand' });
+  }
+
   return brandId;
 };
 
@@ -94,6 +100,10 @@ export const updateBrand = async (id, data, file) => {
   }
 
   await brandModel.update(id, data);
+
+  if (file) {
+    await addUploadJob({ table: 'brands', id, localPath: getLocalPath(file), type: 'brand' });
+  }
 };
 
 export const restoreBrand = async (id) => {

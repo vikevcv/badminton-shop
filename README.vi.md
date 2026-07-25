@@ -9,7 +9,7 @@ Nền tảng thương mại điện tử full-stack cho thiết bị cầu lông
 - **Backend**: Node.js, Express 5
 - **Database**: MySQL 8 (`mysql2`)
 - **Auth**: JWT (access + refresh tokens, HttpOnly cookies), token_version force-logout
-- **Upload**: Multer (lưu tạm) + Cloudinary (worker upload nền)
+- **Upload**: Multer (lưu tạm) + Cloudinary (async qua hàng đợi BullMQ + Redis)
 - **Template**: Handlebars (`express-handlebars`)
 - **Email**: Nodemailer + Brevo SMTP
 - **Logger**: Morgan
@@ -30,7 +30,7 @@ Nền tảng thương mại điện tử full-stack cho thiết bị cầu lông
 - **Dashboard Admin** — Doanh thu, đơn hàng/người dùng, sản phẩm bán chạy, biểu đồ doanh thu theo ngày
 - **Quản lý người dùng** — Khóa/mở khóa (force logout qua `token_version++`), đổi vai trò, danh sách/tìm kiếm
 - **Email** — Email chào mừng (đăng ký), email đặt lại mật khẩu
-- **Upload** — Async Cloudinary upload (sản phẩm, thương hiệu, banner). File tạm → worker upload nền → URL Cloudinary. Hỗ trợ retry khi lỗi.
+- **Upload** — Async Cloudinary upload (sản phẩm, thương hiệu, banner) qua BullMQ + Redis. File tạm → enqueue → worker process upload → URL Cloudinary. Tự retry + dọn dẹp.
 
 ## Bắt đầu nhanh
 
@@ -62,8 +62,13 @@ Sao chép `.env` và cấu hình:
 | `CLOUDINARY_CLOUD_NAME` | Tên cloud Cloudinary |
 | `CLOUDINARY_API_KEY` | API key Cloudinary |
 | `CLOUDINARY_API_SECRET` | API secret Cloudinary |
-| `UPLOAD_WORKER_INTERVAL_MS` | Tần suất polling của worker (mặc định `5000`) |
-| `UPLOAD_MAX_RETRY` | Số lần retry tối đa cho upload lỗi (mặc định `3`) |
+| `REDIS_HOST` | Host Redis (mặc định `localhost`) |
+| `REDIS_PORT` | Port Redis (mặc định `6379`) |
+| `REDIS_PASSWORD` | Mật khẩu Redis (tùy chọn) |
+| `REDIS_DB` | Index DB Redis (mặc định `0`) |
+| `UPLOAD_MAX_RETRY` | Số lần retry tối đa khi upload lỗi (mặc định `3`) |
+| `UPLOAD_BACKOFF_DELAY` | Thời gian chờ giữa các lần retry (ms, mặc định `2000`) |
+| `UPLOAD_CONCURRENCY` | Số worker chạy song song (mặc định `5`) |
 
 ### Database
 
@@ -76,8 +81,10 @@ Tạo bảng và dữ liệu mẫu (100 người dùng, danh mục, thương hi�
 ### Chạy
 
 ```bash
-npm run dev    # Phát triển (nodemon)
-npm start      # Production
+npm run dev      # Phát triển (nodemon)
+npm run worker   # Upload worker (BullMQ, process riêng)
+npm run dev:all  # Dev + worker chạy song song
+npm start        # Production
 ```
 
 ### Tài khoản dùng thử
@@ -132,17 +139,19 @@ http://localhost:3000/api
 
 ```
 src/
-├── config/           # Cấu hình database, mail, Cloudinary
+├── config/           # Cấu hình database, mail, Cloudinary, Redis
 ├── controllers/      # Xử lý request (API + Web SSR)
 ├── helpers/          # Hàm trả response (sendSuccess, sendError)
 ├── middlewares/      # Auth, error handler, validate, upload file (multer)
 ├── models/           # Truy vấn database
+├── queues/           # Định nghĩa hàng đợi BullMQ (upload)
 ├── routes/           # Định nghĩa route Express
-├── services/         # Logic nghiệp vụ + worker upload nền
-└── views/            # Template Handlebars (SSR + email)
-    ├── layouts/
-    ├── partials/
-    └── emails/
+├── services/         # Logic nghiệp vụ, upload service, cloudinary service
+├── views/            # Template Handlebars (SSR + email)
+│   ├── layouts/
+│   ├── partials/
+│   └── emails/
+└── workers/          # Worker process BullMQ (upload)
 ```
 
 ## Triển khai
@@ -157,7 +166,7 @@ docker build -t badminton-shop .
 docker run -p 3000:3000 --env-file .env badminton-shop
 ```
 
-**Lưu ý**: Upload file sử dụng cơ chế async Cloudinary. Worker nền poll database mỗi 5 giây, upload file đang chờ lên Cloudinary, rồi dọn file tạm local. Cấu hình biến `CLOUDINARY_*` cho production.
+**Lưu ý**: Upload file sử dụng BullMQ + Redis worker chạy riêng process. File upload lên Cloudinary async, worker tự xử lý retry + cleanup file tạm. Chạy `npm run dev:all` để khởi động cả dev server và upload worker.
 
 ## Giấy phép
 

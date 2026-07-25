@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import * as bannerModel from '../models/banner.model.js';
 import pool from '../config/database.js';
+import { addUploadJob } from '../queues/upload.queue.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -53,6 +54,11 @@ export const createBanner = async (data, file) => {
     const insertId = await bannerModel.create(data, conn);
 
     await conn.commit();
+
+    if (file) {
+      await addUploadJob({ table: 'banners', id: insertId, localPath: getLocalPath(file), type: 'banner' });
+    }
+
     return insertId;
   } catch (error) {
     await conn.rollback();
@@ -102,6 +108,10 @@ export const updateBanner = async (id, data, file) => {
     await bannerModel.update(id, data, conn);
 
     await conn.commit();
+
+    if (file) {
+      await addUploadJob({ table: 'banners', id, localPath: getLocalPath(file), type: 'banner' });
+    }
   } catch (error) {
     await conn.rollback();
     throw error;

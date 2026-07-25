@@ -5,6 +5,7 @@ import * as productModel from '../models/product.model.js';
 import * as inventoryModel from '../models/inventory.model.js';
 import * as reviewModel from '../models/review.model.js';
 import { formatVND } from '../helpers/currency.helper.js';
+import { addUploadJob } from '../queues/upload.queue.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -214,7 +215,7 @@ export const createProduct = async (data, file) => {
 
   if (file) {
     const localPath = getLocalPath(file);
-    await productModel.addImage({
+    const imageId = await productModel.addImage({
       product_id: productId,
       image_url: '/images/default-racket.png',
       is_thumbnail: true,
@@ -222,6 +223,7 @@ export const createProduct = async (data, file) => {
       upload_status: 'pending_upload',
       local_path: localPath,
     });
+    await addUploadJob({ table: 'product_images', id: imageId, localPath, type: 'product' });
   }
 
   return { productId, slug };
@@ -353,6 +355,8 @@ export const addImage = async (productId, file, isThumbnail, variantId = null) =
     local_path: localPath,
   });
 
+  await addUploadJob({ table: 'product_images', id: imageId, localPath, type: 'product' });
+
   return { imageId, imageUrl: '/images/default-racket.png' };
 };
 
@@ -415,4 +419,9 @@ export const updateImage = async (productId, imageId, data, file = null) => {
   if (data.variant_id !== undefined) data.variant_id = data.variant_id ? Number(data.variant_id) : null;
 
   await productModel.updateImage(imageId, data);
+
+  if (file) {
+    const localPath = getLocalPath(file);
+    await addUploadJob({ table: 'product_images', id: imageId, localPath, type: 'product' });
+  }
 };

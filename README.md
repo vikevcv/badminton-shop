@@ -9,7 +9,7 @@ Full-stack e-commerce platform for badminton equipment built with Node.js, Expre
 - **Backend**: Node.js, Express 5
 - **Database**: MySQL 8 (via `mysql2`)
 - **Auth**: JWT (access + refresh tokens, HttpOnly cookies), token_version force-logout
-- **Upload**: Multer (temp storage) + Cloudinary (async background worker)
+- **Upload**: Multer (temp storage) + Cloudinary (async via BullMQ + Redis queue)
 - **Template**: Handlebars (`express-handlebars`)
 - **Email**: Nodemailer + Brevo SMTP
 - **Logger**: Morgan
@@ -30,7 +30,7 @@ Full-stack e-commerce platform for badminton equipment built with Node.js, Expre
 - **Admin Dashboard** — Revenue, orders/users count, top products, revenue by day, status distribution
 - **User Management** — Ban/unban (force logout via `token_version++`), role change, list/search
 - **Email** — Welcome email (register), forgot password email
-- **Upload** — Async Cloudinary upload (products, brands, banners). File temp → background worker uploads → Cloudinary URL. Supports retry on failure.
+- **Upload** — Async Cloudinary upload (products, brands, banners) via BullMQ + Redis. File temp → enqueue → worker process uploads → Cloudinary URL. Auto retry + cleanup.
 
 ## Quick Start
 
@@ -62,8 +62,13 @@ Copy `.env` and configure:
 | `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name |
 | `CLOUDINARY_API_KEY` | Cloudinary API key |
 | `CLOUDINARY_API_SECRET` | Cloudinary API secret |
-| `UPLOAD_WORKER_INTERVAL_MS` | Worker polling interval (default `5000`) |
+| `REDIS_HOST` | Redis host (default `localhost`) |
+| `REDIS_PORT` | Redis port (default `6379`) |
+| `REDIS_PASSWORD` | Redis password (optional) |
+| `REDIS_DB` | Redis DB index (default `0`) |
 | `UPLOAD_MAX_RETRY` | Max retry for failed uploads (default `3`) |
+| `UPLOAD_BACKOFF_DELAY` | Retry backoff delay in ms (default `2000`) |
+| `UPLOAD_CONCURRENCY` | Worker concurrency (default `5`) |
 
 ### Database
 
@@ -76,8 +81,10 @@ Creates tables and inserts sample data (100 users, categories, brands, products,
 ### Run
 
 ```bash
-npm run dev    # Development (nodemon)
-npm start      # Production
+npm run dev      # Development (nodemon)
+npm run worker   # Upload worker (BullMQ, separate process)
+npm run dev:all  # Dev + worker concurrently
+npm start        # Production
 ```
 
 ### Test Accounts
@@ -132,17 +139,19 @@ http://localhost:3000/api
 
 ```
 src/
-├── config/           # Database, mail, Cloudinary
+├── config/           # Database, mail, Cloudinary, Redis
 ├── controllers/      # Route handlers (API + Web SSR)
 ├── helpers/          # Response helpers (sendSuccess, sendError)
 ├── middlewares/      # Auth, error handler, validation, file upload (multer)
 ├── models/           # Data access layer (MySQL queries)
+├── queues/           # BullMQ queue definitions (upload)
 ├── routes/           # Express route definitions
-├── services/         # Business logic + background upload worker
-└── views/            # Handlebars templates (SSR pages + email templates)
-    ├── layouts/
-    ├── partials/
-    └── emails/
+├── services/         # Business logic, upload service, cloudinary service
+├── views/            # Handlebars templates (SSR pages + email templates)
+│   ├── layouts/
+│   ├── partials/
+│   └── emails/
+└── workers/          # BullMQ worker processes (upload)
 ```
 
 ## Deployment
@@ -157,7 +166,7 @@ docker build -t badminton-shop .
 docker run -p 3000:3000 --env-file .env badminton-shop
 ```
 
-**Note**: File uploads use async Cloudinary upload. The background worker polls the database every 5 seconds, uploads pending files to Cloudinary, then cleans up local temp files. Configure `CLOUDINARY_*` env variables for production.
+**Note**: File uploads use BullMQ + Redis. The upload worker runs as a separate process (`npm run worker`). Configure `REDIS_*` and `CLOUDINARY_*` env variables for production.
 
 ## License
 
