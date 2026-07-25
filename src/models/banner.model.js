@@ -115,3 +115,42 @@ export const existsInRange = async (from, to, excludeId, conn = null) => {
   );
   return rows.length > 0;
 };
+
+export const findPendingUploads = async (maxRetry) => {
+  const [rows] = await pool.query(
+    `SELECT id, local_path, 'banner' AS type FROM banners
+     WHERE upload_status = 'pending_upload' AND retry_count < ?
+     ORDER BY created_at ASC LIMIT 10`,
+    [maxRetry]
+  );
+  return rows;
+};
+
+export const setUploading = async (id, conn = null) => {
+  const exec = conn || pool;
+  await exec.query(`UPDATE banners SET upload_status = 'uploading' WHERE id = ?`, [id]);
+};
+
+export const setFailed = async (id, errorMessage, conn = null) => {
+  const exec = conn || pool;
+  await exec.query(
+    `UPDATE banners SET upload_status = 'failed', retry_count = retry_count + 1, error_message = ? WHERE id = ?`,
+    [errorMessage, id]
+  );
+};
+
+export const setCompleted = async (id, imageUrl, publicId, conn = null) => {
+  const exec = conn || pool;
+  await exec.query(
+    `UPDATE banners SET image_url = ?, upload_status = 'completed', cloud_public_id = ?, local_path = NULL, error_message = NULL WHERE id = ?`,
+    [imageUrl, publicId, id]
+  );
+};
+
+export const retryFailed = async (maxRetry) => {
+  await pool.query(
+    `UPDATE banners SET upload_status = 'pending_upload', error_message = NULL
+     WHERE upload_status = 'failed' AND retry_count < ?`,
+    [maxRetry]
+  );
+};

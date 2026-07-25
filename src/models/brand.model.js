@@ -61,3 +61,42 @@ export const deleteBrand = async (id, deletedBy = null) => {
     await pool.execute(`UPDATE brands SET deleted_at = NOW(), status = 'inactive' WHERE id = ?`, [id]);
   }
 };
+
+export const findPendingUploads = async (maxRetry) => {
+  const [rows] = await pool.query(
+    `SELECT id, local_path, 'brand' AS type FROM brands
+     WHERE upload_status = 'pending_upload' AND retry_count < ?
+     ORDER BY created_at ASC LIMIT 10`,
+    [maxRetry]
+  );
+  return rows;
+};
+
+export const setUploading = async (id, conn = null) => {
+  const exec = conn || pool;
+  await exec.query(`UPDATE brands SET upload_status = 'uploading' WHERE id = ?`, [id]);
+};
+
+export const setFailed = async (id, errorMessage, conn = null) => {
+  const exec = conn || pool;
+  await exec.query(
+    `UPDATE brands SET upload_status = 'failed', retry_count = retry_count + 1, error_message = ? WHERE id = ?`,
+    [errorMessage, id]
+  );
+};
+
+export const setCompleted = async (id, logoUrl, publicId, conn = null) => {
+  const exec = conn || pool;
+  await exec.query(
+    `UPDATE brands SET logo_url = ?, upload_status = 'completed', cloud_public_id = ?, local_path = NULL, error_message = NULL WHERE id = ?`,
+    [logoUrl, publicId, id]
+  );
+};
+
+export const retryFailed = async (maxRetry) => {
+  await pool.query(
+    `UPDATE brands SET upload_status = 'pending_upload', error_message = NULL
+     WHERE upload_status = 'failed' AND retry_count < ?`,
+    [maxRetry]
+  );
+};
