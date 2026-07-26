@@ -204,21 +204,6 @@ export const refreshAccessToken = async (refreshTokenString) => {
   };
 };
 
-export const verifyAdminOrStaff = async (req) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
-  try {
-    const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (decoded.role !== 'admin' && decoded.role !== 'staff') return false;
-    const user = await UserModel.findUserForAuth(decoded.userId);
-    if (!user || user.status !== 'active' || user.token_version !== decoded.token_version) return false;
-    return true;
-  } catch {
-    return false;
-  }
-};
-
 export const getProfile = async (userId) => {
   const user = await UserModel.findUserById(userId);
   if (!user) {

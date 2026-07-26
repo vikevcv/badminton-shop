@@ -1,6 +1,6 @@
 import express from 'express';
 import * as addressController from '../../controllers/api/address.controller.js';
-import { verifyToken, authorizeRoles } from '../../middlewares/auth.middleware.js';
+import { verifyToken, requireAdmin } from '../../middlewares/auth.middleware.js';
 import { validate } from '../../middlewares/validate.middleware.js';
 
 const router = express.Router();
@@ -29,6 +29,6 @@ router.put('/:id', verifyToken, validate({
 
 router.delete('/:id', verifyToken, addressController.deleteAddress);
 
-router.put('/:id/restore', verifyToken, authorizeRoles('admin'), addressController.restoreAddress);
+router.put('/:id/restore', verifyToken, requireAdmin, addressController.restoreAddress);
 
 export default router;

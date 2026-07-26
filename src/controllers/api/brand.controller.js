@@ -1,11 +1,10 @@
 import * as brandService from '../../services/brand.service.js';
-import { verifyAdminOrStaff } from '../../services/auth.service.js';
 import { sendSuccess } from '../../helpers/response.helper.js';
 
 export const getAllBrands = async (req, res, next) => {
   try {
     const includeInactive = req.query.includeInactive === 'true';
-    if (includeInactive && !await verifyAdminOrStaff(req)) {
+    if (includeInactive && (!req.user || (req.user.role !== 'admin' && req.user.role !== 'staff'))) {
       const error = new Error('Không có quyền truy cập');
       error.status = 403;
       throw error;

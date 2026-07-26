@@ -43,6 +43,11 @@ export const authorizeRoles = (...allowedRoles) => {
   };
 };
 
+export const requireAdmin = authorizeRoles('admin');
+export const requireAdminOrStaff = authorizeRoles('admin', 'staff');
+export const requireStaff = authorizeRoles('staff');
+export const requireCustomer = authorizeRoles('customer');
+
 // Optional auth — req.user nếu token hợp lệ, không lỗi nếu thiếu
 export const optionalAuth = async (req, res, next) => {
   let token = null;

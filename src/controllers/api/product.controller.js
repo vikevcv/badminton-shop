@@ -1,5 +1,4 @@
 import * as productService from '../../services/product.service.js';
-import { verifyAdminOrStaff } from '../../services/auth.service.js';
 import { sendSuccess, sendError } from '../../helpers/response.helper.js';
 
 export const getNewestByCategory = async (req, res, next) => {
@@ -16,7 +15,7 @@ export const getNewestByCategory = async (req, res, next) => {
 export const getAllProducts = async (req, res, next) => {
     try {
         if (req.query.display_deleted === 'true') {
-          if (!await verifyAdminOrStaff(req)) {
+          if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'staff')) {
             const error = new Error('Không có quyền truy cập');
             error.status = 403;
             throw error;
@@ -35,7 +34,7 @@ export const getProductDetail = async (req, res, next) => {
   try {
     const { slug } = req.params;
     if (req.query.display_deleted === 'true') {
-      if (!await verifyAdminOrStaff(req)) {
+      if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'staff')) {
         const error = new Error('Không có quyền truy cập');
         error.status = 403;
         throw error;

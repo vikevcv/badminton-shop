@@ -1,6 +1,6 @@
 import express from 'express';
 import * as voucherController from '../../controllers/api/voucher.controller.js';
-import { verifyToken, authorizeRoles } from '../../middlewares/auth.middleware.js';
+import { verifyToken, requireAdmin } from '../../middlewares/auth.middleware.js';
 import { validate } from '../../middlewares/validate.middleware.js';
 
 const router = express.Router();
@@ -17,9 +17,9 @@ router.post('/apply', verifyToken, validate({
 
 router.post('/cancel', verifyToken, voucherController.cancelVoucher);
 
-router.get('/admin', verifyToken, authorizeRoles('admin'), voucherController.getAllVouchersAdmin);
-router.get('/admin/:code', verifyToken, authorizeRoles('admin'), voucherController.getVoucherDetail);
-router.post('/admin', verifyToken, authorizeRoles('admin'), validate({
+router.get('/admin', verifyToken, requireAdmin, voucherController.getAllVouchersAdmin);
+router.get('/admin/:code', verifyToken, requireAdmin, voucherController.getVoucherDetail);
+router.post('/admin', verifyToken, requireAdmin, validate({
   source: 'body',
   fields: {
     code: [['required', 'Mã giảm giá']],
@@ -27,7 +27,7 @@ router.post('/admin', verifyToken, authorizeRoles('admin'), validate({
     discount_value: [['required', 'Giá trị giảm']]
   }
 }), voucherController.createVoucher);
-router.put('/admin/:code', verifyToken, authorizeRoles('admin'), voucherController.updateVoucher);
-router.delete('/admin/:code', verifyToken, authorizeRoles('admin'), voucherController.deleteVoucher);
+router.put('/admin/:code', verifyToken, requireAdmin, voucherController.updateVoucher);
+router.delete('/admin/:code', verifyToken, requireAdmin, voucherController.deleteVoucher);
 
 export default router;
