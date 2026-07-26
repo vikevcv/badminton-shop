@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import * as UserModel from '../models/user.model.js';
 import * as passwordResetModel from '../models/password-reset.model.js';
 import * as refreshTokenModel from '../models/refresh-token.model.js';
+import { generateToken, sha256 } from '../utils/crypto.util.js';
 import pool from '../config/database.js';
 import { sendWelcome, sendForgotPassword } from './mail.service.js';
 
@@ -14,7 +15,7 @@ const parseDuration = (duration) => {
   if (!match) return 7 * 24 * 60 * 60 * 1000;
   const value = parseInt(match[1]);
   const multipliers = { d: 86400000, h: 3600000, m: 60000, s: 1000 };
-  return value * (multipliers[match[2]] || 86400000);
+  return value * (multipliers[match[2]]);
 };
 
 const buildUserResponse = (user) => ({
@@ -35,8 +36,8 @@ const generateAccessToken = (user) => {
 };
 
 const generateRefreshToken = async (user) => {
-  const refreshTokenString = refreshTokenModel.generateTokenString();
-  const tokenHash = refreshTokenModel.hashToken(refreshTokenString);
+  const refreshTokenString = generateToken(64);
+  const tokenHash = sha256(refreshTokenString);
   const family = crypto.randomUUID();
   const expiresAt = new Date(Date.now() + parseDuration(process.env.JWT_REFRESH_EXPIRES || '7d'));
 
@@ -52,32 +53,43 @@ const rotate = async (oldTokenRecord) => {
 
     const locked = await refreshTokenModel.findByIdForUpdate(oldTokenRecord.id, conn);
 
-    if (!locked || locked.revoked_at) {
-      await refreshTokenModel.revokeFamily(oldTokenRecord.family);
-      await conn.commit();
-      const error = new Error('Phiên đăng nhập đã bị đánh cắp, vui lòng đăng nhập lại');
+    if (!locked) {
+      await conn.rollback();
+      const error = new Error('Refresh token không còn tồn tại');
       error.status = 401;
       throw error;
+    }
+    if (locked.revoked_at) {
+      await refreshTokenModel.revokeFamily(oldTokenRecord.family, conn);
+      await conn.commit();
+      return {
+        replayDetected: true,
+        refreshTokenString: null,
+        user: null
+      };
     }
 
     await refreshTokenModel.revokeById(oldTokenRecord.id, conn);
 
-    const user = await UserModel.findUserById(oldTokenRecord.user_id);
+    const user = await UserModel.findUserById(oldTokenRecord.user_id, conn);
     if (!user || user.status !== 'active') {
-      await conn.rollback();
       const error = new Error('Tài khoản không hợp lệ');
       error.status = 401;
       throw error;
     }
 
-    const refreshTokenString = refreshTokenModel.generateTokenString();
-    const tokenHash = refreshTokenModel.hashToken(refreshTokenString);
+    const refreshTokenString = generateToken(64);
+    const tokenHash = sha256(refreshTokenString);
     const expiresAt = new Date(Date.now() + parseDuration(process.env.JWT_REFRESH_EXPIRES || '7d'));
 
     await refreshTokenModel.create(user.id, tokenHash, oldTokenRecord.family, expiresAt, conn);
 
     await conn.commit();
-    return { refreshTokenString, user };
+    return {
+      replayDetected: false,
+      refreshTokenString,
+      user
+    };
   } catch (error) {
     await conn.rollback();
     throw error;
@@ -153,7 +165,7 @@ export const login = async (email, password) => {
 };
 
 export const refreshAccessToken = async (refreshTokenString) => {
-  const tokenHash = refreshTokenModel.hashToken(refreshTokenString);
+  const tokenHash = sha256(refreshTokenString);
   const tokenRecord = await refreshTokenModel.findByHash(tokenHash);
 
   if (!tokenRecord) {
@@ -163,6 +175,7 @@ export const refreshAccessToken = async (refreshTokenString) => {
   }
 
   if (tokenRecord.revoked_at) {
+    await UserModel.incrementTokenVersion(tokenRecord.user_id);
     await refreshTokenModel.revokeFamily(tokenRecord.family);
     const error = new Error('Phiên đăng nhập đã bị đánh cắp, vui lòng đăng nhập lại');
     error.status = 401;
@@ -175,7 +188,14 @@ export const refreshAccessToken = async (refreshTokenString) => {
     throw error;
   }
 
-  const { refreshTokenString: newRefreshTokenString, user } = await rotate(tokenRecord);
+  const { replayDetected, refreshTokenString: newRefreshTokenString, user } = await rotate(tokenRecord);
+  if (replayDetected) {
+    await UserModel.incrementTokenVersion(tokenRecord.user_id);
+    const error = new Error('Refresh token đã được sử dụng trước đó. Phiên đăng nhập đã bị thu hồi, vui lòng đăng nhập lại.');
+    error.status = 401;
+    throw error;
+  }
+
   const accessToken = generateAccessToken(user);
 
   return {
@@ -256,11 +276,12 @@ export const logout = async (token, userId) => {
 export const forgotPassword = async (email) => {
   const user = await UserModel.findUserByEmail(email);
   if (!user) {
-    return true;
+    return null;
   }
 
-  const token = passwordResetModel.generateToken();
-  await passwordResetModel.create(email, token);
+  const token = generateToken(32);
+  const tokenHash = sha256(token);
+  await passwordResetModel.create(email, tokenHash);
 
   sendForgotPassword(email, user.full_name, token);
 
@@ -268,7 +289,8 @@ export const forgotPassword = async (email) => {
 };
 
 export const resetPassword = async (token, newPassword) => {
-  const reset = await passwordResetModel.findByToken(token);
+  const tokenHash = sha256(token);
+  const reset = await passwordResetModel.findByToken(tokenHash);
   if (!reset) {
     const error = new Error('Token không hợp lệ hoặc đã hết hạn');
     error.status = 400;

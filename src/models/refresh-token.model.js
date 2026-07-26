@@ -56,8 +56,9 @@ export const revoke = async (id) => {
   await pool.execute(`UPDATE refresh_tokens SET revoked_at = NOW() WHERE id = ?`, [id]);
 };
 
-export const revokeFamily = async (family) => {
-  await pool.execute(
+export const revokeFamily = async (family, conn = null) => {
+  const exec = conn || pool;
+  await exec.execute(
     `UPDATE refresh_tokens SET revoked_at = NOW() WHERE family = ? AND revoked_at IS NULL`,
     [family]
   );

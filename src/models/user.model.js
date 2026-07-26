@@ -10,8 +10,9 @@ export const findUserByPhone = async (phone) => {
   return rows[0];
 };
 
-export const findUserById = async (id) => {
-  const [rows] = await pool.query(`SELECT * FROM users WHERE id = ? AND deleted_at IS NULL`, [id]);
+export const findUserById = async (id, conn = null) => {
+  const exec = conn || pool;
+  const [rows] = await exec.query(`SELECT * FROM users WHERE id = ? AND deleted_at IS NULL`, [id]);
   return rows[0];
 };
 
