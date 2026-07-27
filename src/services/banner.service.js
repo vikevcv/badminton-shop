@@ -1,4 +1,3 @@
-import slugify from 'slugify';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import * as bannerModel from '../models/banner.model.js';
@@ -12,21 +11,14 @@ const getLocalPath = (file) => {
   return file ? path.join(__dirname, '../../public/uploads', path.basename(file.path)) : null;
 };
 
-export const getAllBanners = async (displayDeleted = false) => {
-  if (displayDeleted) {
-    return await bannerModel.findAllAdmin(true);
-  }
-  return await bannerModel.findAllActive();
+export const getAllBanners = async (filter) => {
+  const { displayDeleted, displayInactive } = filter;
+  return await bannerModel.findAll({ displayDeleted, displayInactive });
 };
 
-export const getBannerDetail = async (id, displayDeleted = false) => {
-  const banner = await bannerModel.findByIdAdmin(id, displayDeleted);
+export const getBannerDetail = async (id, includeHidden) => {
+  const banner = includeHidden ? await bannerModel.findByIdIncludingHidden(id) : await bannerModel.findPublicById(id);
   if (!banner) {
-    const error = new Error('Không tìm thấy banner');
-    error.status = 404;
-    throw error;
-  }
-  if (!displayDeleted && banner.deleted_at) {
     const error = new Error('Không tìm thấy banner');
     error.status = 404;
     throw error;
@@ -69,7 +61,23 @@ export const createBanner = async (data, file) => {
 };
 
 export const updateBanner = async (id, data, file) => {
-  const banner = await bannerModel.findByIdAdmin(id);
+  const forbiddenFields = [
+    'upload_status',
+    'local_path',
+    'cloud_public_id',
+    'retry_count',
+    'error_message'
+  ];
+
+  for (const field of forbiddenFields) {
+    if (field in data) {
+      const error = new Error(`Không được phép cập nhật trường '${field}'`);
+      error.status = 400;
+      throw error;
+    }
+  }
+  
+  const banner = await bannerModel.findForUpdate(id);
   if (!banner) {
     const error = new Error('Không tìm thấy banner');
     error.status = 404;
@@ -95,12 +103,12 @@ export const updateBanner = async (id, data, file) => {
       if (newSortOrder < oldSortOrder) {
         const hasInRange = await bannerModel.existsInRange(newSortOrder, oldSortOrder, id, conn);
         if (hasInRange) {
-          await bannerModel.shiftDown(newSortOrder, conn);
+          await bannerModel.shiftUpRange(newSortOrder, oldSortOrder, id, conn);
         }
       } else {
         const hasInRange = await bannerModel.existsInRange(oldSortOrder, newSortOrder, id, conn);
         if (hasInRange) {
-          await bannerModel.shiftUp(oldSortOrder, id, conn);
+          await bannerModel.shiftDownRange(oldSortOrder, newSortOrder, id, conn);
         }
       }
     }
@@ -121,7 +129,7 @@ export const updateBanner = async (id, data, file) => {
 };
 
 export const deleteBanner = async (id) => {
-  const banner = await bannerModel.findByIdAdmin(id);
+  const banner = await bannerModel.findForUpdate(id);
   if (!banner) {
     const error = new Error('Không tìm thấy banner');
     error.status = 404;
@@ -144,7 +152,7 @@ export const deleteBanner = async (id) => {
   }
 };
 
-export const restoreBanner = async (id, sortOrder) => {
+export const restoreBanner = async (id) => {
   const banner = await bannerModel.findDeletedById(id);
   if (!banner) {
     const error = new Error('Không tìm thấy banner đã xóa');
@@ -156,14 +164,14 @@ export const restoreBanner = async (id, sortOrder) => {
   try {
     await conn.beginTransaction();
 
-    const newSortOrder = sortOrder ?? banner.sort_order;
+    const SortOrder = banner.sort_order;
 
-    const hasExisting = await bannerModel.existsAtOrAbove(newSortOrder, conn);
+    const hasExisting = await bannerModel.existsAtOrAbove(SortOrder, conn);
     if (hasExisting) {
-      await bannerModel.shiftUp(newSortOrder, null, conn);
+      await bannerModel.shiftUp(SortOrder, null, conn);
     }
 
-    await bannerModel.restore(id, newSortOrder, conn);
+    await bannerModel.restore(id, SortOrder, conn);
 
     await conn.commit();
   } catch (error) {

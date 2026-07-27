@@ -1,28 +1,62 @@
 import pool from '../config/database.js';
 
-export const findAllActive = async () => {
-  const [rows] = await pool.query(
-    `SELECT id, title, image_url, link_url, description, sort_order
-     FROM banners
-     WHERE status = 'active' AND deleted_at IS NULL
-     ORDER BY sort_order ASC, created_at DESC`
-  );
-  return rows;
-};
-
-export const findAllAdmin = async (includeDeleted = false) => {
-  const sql = includeDeleted
-    ? `SELECT * FROM banners ORDER BY deleted_at ASC, sort_order ASC, created_at DESC`
-    : `SELECT * FROM banners WHERE deleted_at IS NULL ORDER BY sort_order ASC, created_at DESC`;
+export const findAll = async ({ displayDeleted = false, displayInactive = false } = {}) => {
+  const isDefault = !displayDeleted && !displayInactive;
+  let sql = `SELECT id, title, image_url, link_url, description, sort_order`;
+  if (!isDefault) {
+    sql += `, status, deleted_at`;
+  }
+  sql += ` FROM banners WHERE 1 = 1`;
+  if (!displayInactive) {
+    sql += ` AND status = 'active'`;
+  }
+  if (!displayDeleted) {
+    sql += ` AND deleted_at IS NULL`;
+  }
+  sql += ` ORDER BY sort_order ASC, created_at DESC`;
   const [rows] = await pool.query(sql);
   return rows;
 };
 
-export const findByIdAdmin = async (id, includeDeleted = false) => {
-  const sql = includeDeleted
-    ? `SELECT * FROM banners WHERE id = ?`
-    : `SELECT * FROM banners WHERE id = ? AND deleted_at IS NULL`;
-  const [rows] = await pool.query(sql, [id]);
+export const findForUpdate = async (id) => {
+  const [rows] = await pool.query(
+    `SELECT *
+     FROM banners
+     WHERE id = ?
+       AND deleted_at IS NULL`,
+    [id]
+  );
+
+  return rows[0];
+};
+
+export const findPublicById = async (id) => {
+  const [rows] = await pool.query(
+    `SELECT
+        id,
+        title,
+        image_url,
+        link_url,
+        description,
+        sort_order
+     FROM banners
+     WHERE id = ?
+       AND status = 'active'
+       AND deleted_at IS NULL`,
+    [id]
+  );
+
+  return rows[0];
+};
+
+export const findByIdIncludingHidden = async (id) => {
+  const [rows] = await pool.query(
+    `SELECT *
+     FROM banners
+     WHERE id = ?`,
+    [id]
+  );
+
   return rows[0];
 };
 
@@ -79,6 +113,28 @@ export const shiftDown = async (sortOrder, conn = null) => {
     `UPDATE banners SET sort_order = sort_order - 1 WHERE sort_order > ? AND deleted_at IS NULL`,
     [sortOrder]
   );
+};
+
+export const shiftUpRange = async (from, to, excludeId = null, conn = null) => {
+  const exec = conn || pool;
+  const params = [from, to];
+  let sql = `UPDATE banners SET sort_order = sort_order + 1 WHERE sort_order >= ? AND sort_order < ? AND deleted_at IS NULL`;
+  if (excludeId) {
+    sql += ` AND id != ?`;
+    params.push(excludeId);
+  }
+  await exec.execute(sql, params);
+};
+
+export const shiftDownRange = async (from, to, excludeId = null, conn = null) => {
+  const exec = conn || pool;
+  const params = [from, to];
+  let sql = `UPDATE banners SET sort_order = sort_order - 1 WHERE sort_order > ? AND sort_order <= ? AND deleted_at IS NULL`;
+  if (excludeId) {
+    sql += ` AND id != ?`;
+    params.push(excludeId);
+  }
+  await exec.execute(sql, params);
 };
 
 export const findDeletedById = async (id) => {

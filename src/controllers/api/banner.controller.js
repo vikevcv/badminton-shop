@@ -3,8 +3,12 @@ import { sendSuccess } from '../../helpers/response.helper.js';
 
 export const getAllBanners = async (req, res, next) => {
   try {
-    const displayDeleted = req.query.display_deleted === 'true' && req.user && ['admin', 'staff'].includes(req.user.role);
-    const banners = await bannerService.getAllBanners(displayDeleted);
+    const canViewHidden = ['admin', 'staff'].includes(req.user?.role);
+    const filter = {
+      displayDeleted: canViewHidden && req.query.display_deleted === 'true',
+      displayInactive: canViewHidden && req.query.display_inactive === 'true'
+    };
+    const banners = await bannerService.getAllBanners(filter);
     sendSuccess(res, banners);
   } catch (error) {
     next(error);
@@ -13,8 +17,8 @@ export const getAllBanners = async (req, res, next) => {
 
 export const getBannerDetail = async (req, res, next) => {
   try {
-    const displayDeleted = req.query.display_deleted === 'true' && req.user && ['admin', 'staff'].includes(req.user.role);
-    const banner = await bannerService.getBannerDetail(req.params.id, displayDeleted);
+    const isManager = ['admin', 'staff'].includes(req.user?.role);
+    const banner = await bannerService.getBannerDetail(req.params.id, isManager);
     sendSuccess(res, banner);
   } catch (error) {
     next(error);
@@ -44,8 +48,9 @@ export const createBanner = async (req, res, next) => {
 export const updateBanner = async (req, res, next) => {
   try {
     const data = { ...req.body };
-    if (data.sort_order) data.sort_order = parseInt(data.sort_order);
-
+    if (data.sort_order !== undefined) {
+      data.sort_order = Number(data.sort_order);
+    }
     await bannerService.updateBanner(req.params.id, data, req.file || null);
     sendSuccess(res, null, 'Cập nhật banner thành công');
   } catch (error) {
@@ -64,8 +69,7 @@ export const deleteBanner = async (req, res, next) => {
 
 export const restoreBanner = async (req, res, next) => {
   try {
-    const sortOrder = req.body?.sort_order ? parseInt(req.body.sort_order) : null;
-    await bannerService.restoreBanner(req.params.id, sortOrder);
+    await bannerService.restoreBanner(req.params.id);
     sendSuccess(res, null, 'Khôi phục banner thành công');
   } catch (error) {
     next(error);
