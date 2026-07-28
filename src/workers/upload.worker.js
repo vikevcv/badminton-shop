@@ -1,3 +1,5 @@
+import 'dotenv/config';
+
 import { Worker } from 'bullmq';
 import redis from '../config/redis.js';
 import { processUpload, processUploadFailed } from '../services/upload.service.js';

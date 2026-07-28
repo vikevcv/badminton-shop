@@ -1,6 +1,7 @@
+import 'dotenv/config';
+
 import express from 'express';
 import morgan from 'morgan';
-import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { engine } from 'express-handlebars';
@@ -13,8 +14,6 @@ import { setViewLocals } from './middlewares/auth.middleware.js';
 import { cleanExpired } from './services/refresh-token.service.js';
 import webRoutes from './routes/web.routes.js';
 import apiRoutes from './routes/api/index.js';
-
-dotenv.config();
 
 // ES Modules
 const __filename = fileURLToPath(import.meta.url);
