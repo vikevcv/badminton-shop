@@ -47,18 +47,20 @@ export const update = async (id, data) => {
   await pool.execute(`UPDATE brands SET ${fields.join(', ')} WHERE id = ? AND deleted_at IS NULL`, params);
 };
 
+export const findDeletedById = async (id) => {
+  const [rows] = await pool.query(`SELECT * FROM brands WHERE id = ? AND deleted_at IS NOT NULL`, [id]);
+  return rows[0] || null;
+};
+
 export const restoreBrand = async (id) => {
-  const [rows] = await pool.query(`SELECT id FROM brands WHERE id = ? AND deleted_at IS NOT NULL`, [id]);
-  if (!rows[0]) return null;
-  await pool.execute(`UPDATE brands SET deleted_at = NULL, deleted_by = NULL, status = 'active' WHERE id = ?`, [id]);
-  return rows[0];
+  await pool.execute(`UPDATE brands SET deleted_at = NULL, deleted_by = NULL WHERE id = ?`, [id]);
 };
 
 export const deleteBrand = async (id, deletedBy = null) => {
   if (deletedBy) {
-    await pool.execute(`UPDATE brands SET deleted_at = NOW(), status = 'inactive', deleted_by = ? WHERE id = ?`, [deletedBy, id]);
+    await pool.execute(`UPDATE brands SET deleted_at = NOW(), deleted_by = ? WHERE id = ?`, [deletedBy, id]);
   } else {
-    await pool.execute(`UPDATE brands SET deleted_at = NOW(), status = 'inactive' WHERE id = ?`, [id]);
+    await pool.execute(`UPDATE brands SET deleted_at = NOW() WHERE id = ?`, [id]);
   }
 };
 

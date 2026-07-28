@@ -3,12 +3,7 @@ import { sendSuccess } from '../../helpers/response.helper.js';
 
 export const getAllBrands = async (req, res, next) => {
   try {
-    const includeInactive = req.query.includeInactive === 'true';
-    if (includeInactive && (!req.user || (req.user.role !== 'admin' && req.user.role !== 'staff'))) {
-      const error = new Error('Không có quyền truy cập');
-      error.status = 403;
-      throw error;
-    }
+    const includeInactive = req.query.includeInactive === 'true' && ['admin', 'staff'].includes(req.user?.role);
     const brands = await brandService.getAllBrands(includeInactive);
     sendSuccess(res, brands);
   } catch (error) {
@@ -18,7 +13,7 @@ export const getAllBrands = async (req, res, next) => {
 
 export const getBrand = async (req, res, next) => {
   try {
-    const brand = await brandService.getBrand(parseInt(req.params.id));
+    const brand = await brandService.getBrand(parseInt(req.params.id), req.user?.role);
     sendSuccess(res, brand);
   } catch (error) {
     next(error);

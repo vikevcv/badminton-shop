@@ -15,14 +15,21 @@ export const getAllBrands = async (includeInactive) => {
   return await brandModel.findAll(includeInactive);
 };
 
-export const getBrand = async (id) => {
+export const getBrand = async (id, role) => {
+  const isAdmin = role === 'admin';
   const brand = await brandModel.findById(id);
   if (!brand) {
     const error = new Error('Không tìm thấy thương hiệu');
     error.status = 404;
     throw error;
   }
-  return brand;
+  if (brand.status === 'inactive' && !isAdmin) {
+    const error = new Error('Không tìm thấy thương hiệu');
+    error.status = 404;
+    throw error;
+  }
+  if(isAdmin) return brand;
+  return {id: brand.id, name: brand.name, slug: brand.slug, logo_url: brand.logo_url, country: brand.country};
 };
 
 export const createBrand = async (data, file) => {
@@ -92,7 +99,6 @@ export const updateBrand = async (id, data, file) => {
   }
 
   if (file) {
-    data.logo_url = '/images/default-brand.png';
     data.upload_status = 'pending_upload';
     data.local_path = getLocalPath(file);
     data.retry_count = 0;
@@ -107,12 +113,14 @@ export const updateBrand = async (id, data, file) => {
 };
 
 export const restoreBrand = async (id) => {
-  const brand = await brandModel.restoreBrand(id);
-  if (!brand) {
-    const error = new Error('Không tìm thấy thương hiệu đã xóa');
-    error.status = 404;
-    throw error;
-  }
+  const brand = await brandModel.findDeletedById(id);
+
+    if (!brand) {
+        const error = new Error('Không tìm thấy thương hiệu đã xóa');
+        error.status = 404;
+        throw error;
+    }
+    await brandModel.restoreBrand(id);
 };
 
 export const deleteBrand = async (id, deletedBy = null) => {

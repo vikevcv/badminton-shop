@@ -6,7 +6,7 @@ import { upload } from '../../middlewares/upload.middleware.js';
 const router = express.Router();
 
 router.get('/', optionalAuth, brandController.getAllBrands);
-router.get('/:id', brandController.getBrand);
+router.get('/:id',optionalAuth, brandController.getBrand);
 router.post('/', verifyToken, requireAdmin, upload.single('logo'), brandController.createBrand);
 router.put('/:id', verifyToken, requireAdmin, upload.single('logo'), brandController.updateBrand);
 router.delete('/:id', verifyToken, requireAdmin, brandController.deleteBrand);

@@ -29,4 +29,4 @@ dist/
 build/
 uploads/
 
-.test.js
+test.js
