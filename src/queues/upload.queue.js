@@ -12,6 +12,8 @@ export const uploadQueue = new Queue('upload', {
       type: 'exponential',
       delay: BACKOFF_DELAY,
     },
+    removeOnComplete: true,
+    removeOnFail: 1000,
   },
 });
 
