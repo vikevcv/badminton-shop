@@ -15,9 +15,8 @@ export const getAddresses = async (req, res, next) => {
 
 export const getAddressById = async (req, res, next) => {
   try {
-    const includeDeleted = req.query.display_deleted === 'true';
     const address = await addressService.getAddressById(
-      parseInt(req.params.id), req.user.userId, req.user.role, includeDeleted
+      parseInt(req.params.id), req.user.userId, req.user.role
     );
     sendSuccess(res, address);
   } catch (error) {

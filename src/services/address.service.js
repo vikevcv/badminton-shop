@@ -12,7 +12,8 @@ export const getAddresses = async (userId, role, filterUserId = null, includeDel
   return await addressModel.findByUserId(userId, false);
 };
 
-export const getAddressById = async (id, userId, role, includeDeleted = false) => {
+export const getAddressById = async (id, userId, role) => {
+  const includeDeleted = isStaffOrAdmin(role);
   const address = await addressModel.findById(id, includeDeleted);
   if (!address) {
     const error = new Error('Không tìm thấy địa chỉ');
@@ -24,7 +25,7 @@ export const getAddressById = async (id, userId, role, includeDeleted = false) =
     error.status = 404;
     throw error;
   }
-  return address;
+  return isStaffOrAdmin(role) ? address : {id: address.id, receiver_name: address.receiver_name, receiver_phone: address.receiver_phone, address: address.address, is_default: address.is_default};
 };
 
 export const createAddress = async (userId, data, role) => {
@@ -56,7 +57,7 @@ export const updateAddress = async (id, userId, data, role) => {
     error.status = 404;
     throw error;
   }
-  const updated = await addressModel.update(id, data, isStaffOrAdmin(role) ? null : userId);
+  const updated = await addressModel.update(id, data);
   if (!updated) {
     const error = new Error('Không tìm thấy địa chỉ');
     error.status = 404;
@@ -82,7 +83,7 @@ export const deleteAddress = async (id, userId, role, deletedBy) => {
     error.status = 404;
     throw error;
   }
-  const deleted = await addressModel.softDelete(id, isStaffOrAdmin(role) ? null : userId, deletedBy || null);
+  const deleted = await addressModel.softDelete(id, deletedBy || null);
   if (!deleted) {
     const error = new Error('Không tìm thấy địa chỉ');
     error.status = 404;

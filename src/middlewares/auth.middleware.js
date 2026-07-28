@@ -36,7 +36,7 @@ export const verifyToken = async (req, res, next) => {
 // Authorization (role-based)
 export const authorizeRoles = (...allowedRoles) => {
   return (req, res, next) => {
-    if (!req.user || !allowedRoles.includes(req.user.role)) {
+    if (!allowedRoles.includes(req.user?.role)) {
       return sendError(res, 'Bạn không có quyền thực hiện hành động này!', [], 403);
     }
     next();

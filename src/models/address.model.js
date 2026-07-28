@@ -1,7 +1,7 @@
 import pool from '../config/database.js';
 
 export const findByUserId = async (userId, includeDeleted = false) => {
-  let query = `SELECT * FROM user_addresses WHERE user_id = ?`;
+  let query = includeDeleted ? `SELECT * FROM user_addresses WHERE user_id = ?` : `SELECT id, receiver_name, receiver_phone, address, is_default FROM user_addresses WHERE user_id = ?`;
   if (!includeDeleted) query += ` AND deleted_at IS NULL`;
   query += ` ORDER BY is_default DESC, created_at DESC`;
   const [rows] = await pool.query(query, [userId]);
@@ -9,7 +9,7 @@ export const findByUserId = async (userId, includeDeleted = false) => {
 };
 
 export const findAll = async (includeDeleted = false) => {
-  let where = includeDeleted ? '' : 'WHERE ua.deleted_at IS NULL';
+  const where = includeDeleted ? '' : 'WHERE ua.deleted_at IS NULL';
   const [rows] = await pool.query(
     `SELECT ua.*, u.full_name AS user_name, u.email AS user_email
      FROM user_addresses ua
@@ -19,6 +19,7 @@ export const findAll = async (includeDeleted = false) => {
   );
   return rows;
 };
+
 
 export const findById = async (id, includeDeleted = false) => {
   let query = `SELECT * FROM user_addresses WHERE id = ?`;
@@ -44,7 +45,7 @@ export const create = async (userId, data) => {
   return result.insertId;
 };
 
-export const update = async (id, data, userId = null) => {
+export const update = async (id, data) => {
   const { receiver_name, receiver_phone, address, is_default } = data;
 
   if (is_default) {
@@ -57,38 +58,28 @@ export const update = async (id, data, userId = null) => {
     }
   }
 
-  let query = `UPDATE user_addresses SET receiver_name = ?, receiver_phone = ?, address = ?, is_default = ? WHERE id = ? AND deleted_at IS NULL`;
+  const query = `UPDATE user_addresses SET receiver_name = ?, receiver_phone = ?, address = ?, is_default = ? WHERE id = ? AND deleted_at IS NULL`;
   const params = [receiver_name, receiver_phone, address, is_default || false, id];
-
-  if (userId !== null) {
-    query += ` AND user_id = ?`;
-    params.push(userId);
-  }
 
   const [result] = await pool.execute(query, params);
   return result.affectedRows > 0;
 };
 
-export const softDelete = async (id, userId = null, deletedBy = null) => {
-  let query = `UPDATE user_addresses SET deleted_at = NOW(), deleted_by = ? WHERE id = ? AND deleted_at IS NULL`;
+export const softDelete = async (id, deletedBy = null) => {
+  const query = `UPDATE user_addresses SET deleted_at = NOW(), deleted_by = ? WHERE id = ? AND deleted_at IS NULL`;
   const params = [deletedBy, id];
-
-  if (userId !== null) {
-    query += ` AND user_id = ?`;
-    params.push(userId);
-  }
 
   const [result] = await pool.execute(query, params);
   return result.affectedRows > 0;
 };
 
 export const restore = async (id) => {
-  const [rows] = await pool.query(
-    `SELECT id FROM user_addresses WHERE id = ? AND deleted_at IS NOT NULL`, [id]
+  const [result] = await pool.execute(
+    `UPDATE user_addresses 
+     SET deleted_at = NULL, deleted_by = NULL 
+     WHERE id = ? AND deleted_at IS NOT NULL`,
+    [id]
   );
-  if (!rows[0]) return null;
-  await pool.execute(
-    `UPDATE user_addresses SET deleted_at = NULL, deleted_by = NULL WHERE id = ?`, [id]
-  );
-  return rows[0];
+  if (result.affectedRows === 0) return null;
+  return { id };
 };
