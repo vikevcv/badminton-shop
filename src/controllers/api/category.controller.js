@@ -12,7 +12,7 @@ export const getAllCategories = async (req, res, next) => {
 
 export const getCategory = async (req, res, next) => {
   try {
-    const category = await categoryService.getCategory(parseInt(req.params.id));
+    const category = await categoryService.getCategory(parseInt(req.params.id), req.user?.role);
     sendSuccess(res, category);
   } catch (error) {
     next(error);
@@ -30,7 +30,7 @@ export const createCategory = async (req, res, next) => {
 
 export const updateCategory = async (req, res, next) => {
   try {
-    await categoryService.updateCategory(parseInt(req.params.id), req.body);
+    await categoryService.updateCategory(parseInt(req.params.id), req.body, req.user?.role);
     sendSuccess(res, null, 'Cập nhật danh mục thành công');
   } catch (error) {
     next(error);

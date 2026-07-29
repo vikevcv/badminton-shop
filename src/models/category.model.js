@@ -2,13 +2,19 @@ import pool from '../config/database.js';
 
 export const findAll = async () => {
   const [rows] = await pool.query(
-    `SELECT id, name, slug, description FROM categories WHERE deleted_at IS NULL ORDER BY name ASC`
+    `SELECT id, name, slug FROM categories WHERE deleted_at IS NULL ORDER BY name ASC`
   );
   return rows;
 };
 
-export const findById = async (id) => {
-  const [rows] = await pool.query(`SELECT * FROM categories WHERE id = ? AND deleted_at IS NULL`, [id]);
+export const findById = async (id, includeDeleted = false) => {
+  const query = includeDeleted ? `SELECT * FROM categories WHERE id = ?` 
+                            : `SELECT id, name, slug, description FROM categories WHERE id = ? AND deleted_at IS NULL`;
+  const [rows] = await pool.query(query, [id]);
+  return rows[0] || null;
+};
+export const findDeletedById = async (id) => {
+  const [rows] = await pool.query(`SELECT * FROM categories WHERE id = ? AND deleted_at IS NOT NULL`, [id]);
   return rows[0] || null;
 };
 
@@ -47,10 +53,7 @@ export const update = async (id, data) => {
 };
 
 export const restoreCategory = async (id) => {
-  const [rows] = await pool.query(`SELECT id FROM categories WHERE id = ? AND deleted_at IS NOT NULL`, [id]);
-  if (!rows[0]) return null;
   await pool.execute(`UPDATE categories SET deleted_at = NULL, deleted_by = NULL WHERE id = ?`, [id]);
-  return rows[0];
 };
 
 export const deleteCategory = async (id, deletedBy = null) => {

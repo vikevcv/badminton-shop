@@ -1,19 +1,19 @@
 import express from 'express';
 import * as categoryController from '../../controllers/api/category.controller.js';
-import { verifyToken, requireAdmin } from '../../middlewares/auth.middleware.js';
+import { verifyToken, requireAdmin, requireAdminOrStaff, optionalAuth } from '../../middlewares/auth.middleware.js';
 import { validate } from '../../middlewares/validate.middleware.js';
 
 const router = express.Router();
 
 router.get('/', categoryController.getAllCategories);
-router.get('/:id', categoryController.getCategory);
-router.post('/', verifyToken, requireAdmin, validate({
+router.get('/:id', optionalAuth, categoryController.getCategory);
+router.post('/', verifyToken, requireAdminOrStaff, validate({
   source: 'body',
   fields: {
     name: { name: 'Tên danh mục', rules: [['required']] }
   }
 }), categoryController.createCategory);
-router.put('/:id', verifyToken, requireAdmin, validate({
+router.put('/:id', verifyToken, requireAdminOrStaff, validate({
   source: 'body',
   fields: {
     name: { name: 'Tên danh mục', rules: [['required']] }
