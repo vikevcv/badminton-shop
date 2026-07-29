@@ -4,61 +4,47 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^(0[35789])[0-9]{8}$/;
 
 export const rules = {
-  required: (field, value) => {
+  required: (value) => {
     if (value === undefined || value === null || String(value).trim() === '') {
-      return `${field} không được để trống`;
+      return 'không được để trống';
     }
     return null;
   },
 
-  email: (_field, value) => {
-    if (value && !EMAIL_REGEX.test(value)) {
-      return 'Email không hợp lệ';
-    }
+  email: (value) => {
+    if (value && !EMAIL_REGEX.test(value)) return 'không hợp lệ';
     return null;
   },
 
-  phone: (_field, value) => {
-    if (value && !PHONE_REGEX.test(value)) {
-      return 'Số điện thoại không hợp lệ (VD: 0912345678)';
-    }
+  phone: (value) => {
+    if (value && !PHONE_REGEX.test(value)) return 'không hợp lệ (VD: 0912345678)';
     return null;
   },
 
-  minLength: (field, value, min) => {
-    if (value && value.length < min) {
-      return `${field} phải có ít nhất ${min} ký tự`;
-    }
+  minLength: (value, min) => {
+    if (value && String(value).length < min) return `phải có ít nhất ${min} ký tự`;
     return null;
   },
 
-  maxLength: (field, value, max) => {
-    if (value && value.length > max) {
-      return `${field} không được quá ${max} ký tự`;
-    }
+  maxLength: (value, max) => {
+    if (value && String(value).length > max) return `không được quá ${max} ký tự`;
     return null;
   },
 
-  inRange: (field, value, min, max) => {
+  inRange: (value, min, max) => {
     const num = Number(value);
-    if (isNaN(num) || num < min || num > max) {
-      return `${field} phải từ ${min} đến ${max}`;
-    }
+    if (isNaN(num) || num < min || num > max) return `phải từ ${min} đến ${max}`;
     return null;
   },
 
-  positiveInt: (field, value) => {
+  positiveInt: (value) => {
     const num = Number(value);
-    if (isNaN(num) || !Number.isInteger(num) || num < 1) {
-      return `${field} phải là số nguyên dương`;
-    }
+    if (isNaN(num) || !Number.isInteger(num) || num < 1) return 'phải là số nguyên dương';
     return null;
   },
 
-  oneOf: (field, value, allowed) => {
-    if (!allowed.includes(value)) {
-      return `${field} phải là một trong: ${allowed.join(', ')}`;
-    }
+  oneOf: (value, allowed) => {
+    if (!value || !allowed.includes(value)) return `phải là một trong: ${allowed.join(', ')}`;
     return null;
   }
 };
@@ -68,13 +54,18 @@ export const validate = (schema) => {
     const errors = [];
     const source = schema.source === 'body' ? req.body : req.query;
 
-    for (const [field, fieldRules] of Object.entries(schema.fields)) {
+    for (const [field, config] of Object.entries(schema.fields)) {
       const value = source[field];
-      for (const [ruleName, ...args] of fieldRules) {
+      const displayName = config.name || field;
+
+      for (const [ruleName, ...args] of config.rules) {
         if (rules[ruleName]) {
-          const displayName = args.length > 0 ? args[0] : field;
-          const error = rules[ruleName](displayName, value, ...args.slice(1));
-          if (error) errors.push(error);
+          const errorMessage = rules[ruleName](value, ...args);
+
+          if (errorMessage) {
+            errors.push(`${displayName} ${errorMessage}`);
+            break;
+          }
         }
       }
     }

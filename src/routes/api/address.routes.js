@@ -12,18 +12,18 @@ router.get('/:id', verifyToken, addressController.getAddressById);
 router.post('/', verifyToken, validate({
   source: 'body',
   fields: {
-    receiver_name: [['required', 'Tên người nhận']],
-    receiver_phone: [['required', 'Số điện thoại'], ['phone']],
-    address: [['required', 'Địa chỉ']]
+    receiver_name: { name: 'Tên người nhận', rules: [['required']] },
+    receiver_phone: { name: 'Số điện thoại', rules: [['required'], ['phone']] },
+    address: { name: 'Địa chỉ', rules: [['required']] }
   }
 }), addressController.createAddress);
 
 router.put('/:id', verifyToken, validate({
   source: 'body',
   fields: {
-    receiver_name: [['required', 'Tên người nhận']],
-    receiver_phone: [['required', 'Số điện thoại'], ['phone']],
-    address: [['required', 'Địa chỉ']]
+    receiver_name: { name: 'Tên người nhận', rules: [['required']] },
+    receiver_phone: { name: 'Số điện thoại', rules: [['required'], ['phone']] },
+    address: { name: 'Địa chỉ', rules: [['required']] }
   }
 }), addressController.updateAddress);
 

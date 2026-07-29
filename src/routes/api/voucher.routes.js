@@ -10,8 +10,8 @@ router.get('/', voucherController.getAllVouchers);
 router.post('/apply', verifyToken, validate({
   source: 'body',
   fields: {
-    code: [['required', 'Mã giảm giá']],
-    subtotal: [['required', 'Tổng tiền hàng']]
+    code: { name: 'Mã giảm giá', rules: [['required']] },
+    subtotal: { name: 'Tổng tiền hàng', rules: [['required']] }
   }
 }), voucherController.applyVoucher);
 
@@ -22,9 +22,9 @@ router.get('/admin/:code', verifyToken, requireAdmin, voucherController.getVouch
 router.post('/admin', verifyToken, requireAdmin, validate({
   source: 'body',
   fields: {
-    code: [['required', 'Mã giảm giá']],
-    discount_type: [['required', 'Loại giảm giá']],
-    discount_value: [['required', 'Giá trị giảm']]
+    code: { name: 'Mã giảm giá', rules: [['required']] },
+    discount_type: { name: 'Loại giảm giá', rules: [['required']] },
+    discount_value: { name: 'Giá trị giảm', rules: [['required']] }
   }
 }), voucherController.createVoucher);
 router.put('/admin/:code', verifyToken, requireAdmin, voucherController.updateVoucher);

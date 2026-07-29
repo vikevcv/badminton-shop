@@ -10,13 +10,13 @@ router.get('/:id', categoryController.getCategory);
 router.post('/', verifyToken, requireAdmin, validate({
   source: 'body',
   fields: {
-    name: [['required', 'Tên danh mục']]
+    name: { name: 'Tên danh mục', rules: [['required']] }
   }
 }), categoryController.createCategory);
 router.put('/:id', verifyToken, requireAdmin, validate({
   source: 'body',
   fields: {
-    name: [['required', 'Tên danh mục']]
+    name: { name: 'Tên danh mục', rules: [['required']] }
   }
 }), categoryController.updateCategory);
 router.delete('/:id', verifyToken, requireAdmin, categoryController.deleteCategory);

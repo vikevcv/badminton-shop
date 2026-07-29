@@ -10,7 +10,7 @@ router.get('/', verifyToken, wishlistController.getWishlist);
 router.post('/', verifyToken, validate({
   source: 'body',
   fields: {
-    productId: [['required', 'Sản phẩm'], ['positiveInt', 'Sản phẩm']]
+    productId: { name: 'Sản phẩm', rules: [['required'], ['positiveInt']] }
   }
 }), wishlistController.addToWishlist);
 

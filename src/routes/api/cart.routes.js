@@ -10,14 +10,14 @@ router.get('/', verifyToken, cartController.getCart);
 router.post('/items', verifyToken, validate({
   source: 'body',
   fields: {
-    variant_id: [['required', 'ID biến thể'], ['positiveInt', 'ID biến thể']],
-    quantity: [['required', 'Số lượng'], ['positiveInt', 'Số lượng']]
+    variant_id: { name: 'ID biến thể', rules: [['required'], ['positiveInt']] },
+    quantity: { name: 'Số lượng', rules: [['required'], ['positiveInt']] }
   }
 }), cartController.addItem);
 
 router.put('/items/:id', verifyToken, validate({
   source: 'body',
-  fields: { quantity: [['required', 'Số lượng'], ['positiveInt', 'Số lượng']] }
+  fields: { quantity: { name: 'Số lượng', rules: [['required'], ['positiveInt']] } }
 }), cartController.updateItemQuantity);
 
 router.delete('/items/:id', verifyToken, cartController.removeItem);

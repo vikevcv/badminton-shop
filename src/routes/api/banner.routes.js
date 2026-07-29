@@ -12,7 +12,7 @@ router.get('/:id', optionalAuth, bannerController.getBannerDetail);
 router.post('/', verifyToken, requireAdmin, upload.single('image'), validate({
   source: 'body',
   fields: {
-    title: [['required', 'Tiêu đề']]
+    title: { name: 'Tiêu đề', rules: [['required']] }
   }
 }), bannerController.createBanner);
 router.put('/:id', verifyToken, requireAdmin, upload.single('image'), bannerController.updateBanner);
