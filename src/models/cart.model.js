@@ -1,25 +1,18 @@
 import pool from '../config/database.js';
 
-export const findOrCreateCart = async (userId) => {
-  const conn = await pool.getConnection();
-  try {
-    const [rows] = await conn.query(`SELECT * FROM carts WHERE user_id = ? FOR UPDATE`, [userId]);
-    if (rows.length === 0) {
-      const [result] = await conn.execute(`INSERT INTO carts (user_id) VALUES (?)`, [userId]);
-      conn.release();
-      return { id: result.insertId, user_id: userId };
-    }
-    conn.release();
-    return rows[0];
-  } catch (error) {
-    conn.release();
-    throw error;
-  }
+export const findByUserId = async (userId) => {
+  const [rows] = await pool.query(`SELECT * FROM carts WHERE user_id = ?`, [userId]);
+  return rows[0];
+};
+
+export const create = async (userId) => {
+  const [result] = await pool.execute(`INSERT INTO carts (user_id) VALUES (?)`, [userId]);
+  return result.insertId;
 };
 
 export const getCartItems = async (cartId) => {
   const [rows] = await pool.query(
-    `SELECT ci.id, ci.variant_id, ci.quantity, ci.metadata,
+    `SELECT ci.id, ci.variant_id, ci.quantity,
             pv.sku, pv.price, pv.status AS variant_status,
             p.name AS product_name, p.slug AS product_slug,
             pi.image_url,
@@ -35,98 +28,38 @@ export const getCartItems = async (cartId) => {
   return rows;
 };
 
-export const addItem = async (cartId, variantId, quantity, metadata = null) => {
-  const conn = await pool.getConnection();
-  try {
-    await conn.beginTransaction();
-
-    const [existing] = await conn.query(
-      `SELECT * FROM cart_items WHERE cart_id = ? AND variant_id = ? FOR UPDATE`,
-      [cartId, variantId]
-    );
-
-    const [stock] = await conn.query(
-      `SELECT quantity FROM inventories WHERE variant_id = ? FOR UPDATE`,
-      [variantId]
-    );
-    const stockQty = stock[0]?.quantity || 0;
-
-    if (existing.length > 0) {
-      const newQty = existing[0].quantity + quantity;
-      if (newQty > stockQty) {
-        const error = new Error(`Số lượng vượt quá tồn kho (còn ${stockQty})`);
-        error.status = 400;
-        throw error;
-      }
-      await conn.execute(
-        `UPDATE cart_items SET quantity = ? WHERE id = ?`,
-        [newQty, existing[0].id]
-      );
-      await conn.commit();
-      return existing[0].id;
-    }
-
-    if (quantity > stockQty) {
-      const error = new Error(`Số lượng vượt quá tồn kho (còn ${stockQty})`);
-      error.status = 400;
-      throw error;
-    }
-
-    const metaJson = metadata ? JSON.stringify(metadata) : null;
-    const [result] = await conn.execute(
-      `INSERT INTO cart_items (cart_id, variant_id, quantity, metadata) VALUES (?, ?, ?, ?)`,
-      [cartId, variantId, quantity, metaJson]
-    );
-    await conn.commit();
-    return result.insertId;
-  } catch (error) {
-    await conn.rollback();
-    throw error;
-  } finally {
-    conn.release();
-  }
+export const findExistingItem = async (cartId, variantId, conn) => {
+  const [rows] = await conn.query(
+    `SELECT * FROM cart_items WHERE cart_id = ? AND variant_id = ? FOR UPDATE`,
+    [cartId, variantId]
+  );
+  return rows[0];
 };
 
-export const updateItemQuantity = async (itemId, cartId, quantity) => {
-  const conn = await pool.getConnection();
-  try {
-    await conn.beginTransaction();
-
-    const [item] = await conn.query(
-      `SELECT ci.variant_id FROM cart_items ci WHERE ci.id = ? AND ci.cart_id = ? FOR UPDATE`,
-      [itemId, cartId]
-    );
-    if (!item[0]) {
-      await conn.commit();
-      return false;
-    }
-
-    const [stock] = await conn.query(
-      `SELECT quantity FROM inventories WHERE variant_id = ? FOR UPDATE`,
-      [item[0].variant_id]
-    );
-    const stockQty = stock[0]?.quantity || 0;
-    if (quantity > stockQty) {
-      const error = new Error(`Số lượng vượt quá tồn kho (còn ${stockQty})`);
-      error.status = 400;
-      throw error;
-    }
-
-    const [result] = await conn.execute(
-      `UPDATE cart_items SET quantity = ? WHERE id = ? AND cart_id = ?`,
-      [quantity, itemId, cartId]
-    );
-    await conn.commit();
-    return result.affectedRows > 0;
-  } catch (error) {
-    await conn.rollback();
-    throw error;
-  } finally {
-    conn.release();
-  }
+export const insertItem = async (cartId, variantId, quantity, conn) => {
+  const [result] = await conn.execute(
+    `INSERT INTO cart_items (cart_id, variant_id, quantity) VALUES (?, ?, ?)`,
+    [cartId, variantId, quantity]
+  );
+  return result.insertId;
 };
 
-export const removeItem = async (itemId, cartId, conn = null) => {
+export const updateItemQty = async (itemId, quantity, conn) => {
+  await conn.execute(
+    `UPDATE cart_items SET quantity = ? WHERE id = ?`,
+    [quantity, itemId]
+  );
+};
+
+export const findItemVariantId = async (itemId, cartId) => {
+  const [rows] = await pool.query(
+    `SELECT variant_id FROM cart_items WHERE id = ? AND cart_id = ?`,
+    [itemId, cartId]
+  );
+  return rows[0] ? rows[0].variant_id : null;
+};
+
+export const removeItem = async (itemId, cartId, conn) => {
   const exec = conn || pool;
   const [result] = await exec.execute(
     `DELETE FROM cart_items WHERE id = ? AND cart_id = ?`,
@@ -135,6 +68,7 @@ export const removeItem = async (itemId, cartId, conn = null) => {
   return result.affectedRows > 0;
 };
 
-export const clearCart = async (cartId) => {
-  await pool.execute(`DELETE FROM cart_items WHERE cart_id = ?`, [cartId]);
+export const clearCart = async (cartId, conn) => {
+  const exec = conn || pool;
+  await exec.execute(`DELETE FROM cart_items WHERE cart_id = ?`, [cartId]);
 };

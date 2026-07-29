@@ -16,12 +16,11 @@ export const createOrder = async (data, conn = null) => {
   return result.insertId;
 };
 
-export const createOrderItem = async (orderId, variantId, quantity, unitPrice, totalPrice, metadata = null, conn = null) => {
+export const createOrderItem = async (orderId, variantId, quantity, unitPrice, totalPrice, conn = null) => {
   const exec = conn || pool;
-  const metaJson = metadata ? JSON.stringify(metadata) : null;
   await exec.execute(
-    `INSERT INTO order_items (order_id, variant_id, quantity, unit_price, total_price, metadata) VALUES (?, ?, ?, ?, ?, ?)`,
-    [orderId, variantId, quantity, unitPrice, totalPrice, metaJson]
+    `INSERT INTO order_items (order_id, variant_id, quantity, unit_price, total_price) VALUES (?, ?, ?, ?, ?)`,
+    [orderId, variantId, quantity, unitPrice, totalPrice]
   );
 };
 

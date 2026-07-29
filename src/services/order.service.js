@@ -156,8 +156,7 @@ export const createOrder = async (userId, data) => {
         const totalPrice = item.quantity * parseFloat(item.price);
         await orderModel.createOrderItem(
           orderId, item.variant_id, item.quantity,
-          parseFloat(item.price), totalPrice,
-          item.metadata, conn
+          parseFloat(item.price), totalPrice, conn
         );
 
         const decremented = await inventoryModel.decrementStock(item.variant_id, item.quantity, conn);
