@@ -58,19 +58,15 @@ export const getProductAdmin = async (id) => {
 };
 
 export const getNewestByCategory = async (categorySlug, limit = 8) => {
-    try {
-        const products = await productModel.findNewestProductsByCategory(categorySlug, limit);
-        const formatProduct = products.map((product) => {
-            return {
-                ...product,
-                formattedPrice: formatVND(product.price),
-                imageUrl: product.image_url || '/images/default-racket.png'
-            };
-        });
-        return formatProduct;
-    } catch (error) {
-        throw error;
-    }
+  const products = await productModel.findNewestProductsByCategory(categorySlug, limit);
+  const formatProduct = products.map((product) => {
+      return {
+          ...product,
+          formattedPrice: formatVND(product.price),
+          imageUrl: product.image_url || '/images/default-racket.png'
+      };
+  });
+  return formatProduct;
 };
 
 export const getAllProducts = async (params = {}) => {

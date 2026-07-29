@@ -252,7 +252,7 @@ export const changePassword = async (userId, currentPassword, newPassword) => {
   return true;
 };
 
-export const logout = async (token, userId) => {
+export const logout = async (userId) => {
   await UserModel.incrementTokenVersion(userId);
   await refreshTokenModel.revokeAllByUserId(userId);
   return true;

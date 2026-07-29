@@ -116,7 +116,7 @@ export const findUserByIdAdmin = async (id) => {
   return rows[0];
 };
 
-export const updateUserStatus = async (userId, status, changedBy) => {
+export const updateUserStatus = async (userId, status) => {
   if (status === 'banned') {
     await pool.execute(
       `UPDATE users SET status = ?, token_version = token_version + 1, updated_at = NOW() WHERE id = ?`,

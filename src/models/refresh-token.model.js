@@ -1,13 +1,4 @@
 import pool from '../config/database.js';
-import crypto from 'crypto';
-
-export const hashToken = (token) => {
-  return crypto.createHash('sha256').update(token).digest('hex');
-};
-
-export const generateTokenString = () => {
-  return crypto.randomBytes(64).toString('hex');
-};
 
 export const create = async (userId, tokenHash, family, expiresAt, conn = null) => {
   const exec = conn || pool;

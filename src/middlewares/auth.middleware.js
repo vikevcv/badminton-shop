@@ -28,7 +28,7 @@ export const verifyToken = async (req, res, next) => {
     req.token = token;
     
     next(); 
-  } catch (error) {
+  } catch (_) {
     return sendError(res, 'Token không hợp lệ hoặc đã hết hạn!', [], 401);
   }
 };

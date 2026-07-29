@@ -1,5 +1,5 @@
 import * as productService from '../../services/product.service.js';
-import { sendSuccess, sendError } from '../../helpers/response.helper.js';
+import { sendSuccess } from '../../helpers/response.helper.js';
 
 export const getNewestByCategory = async (req, res, next) => {
   try {

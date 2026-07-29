@@ -107,7 +107,7 @@ export const changePassword = async (req, res, next) => {
 
 export const logout = async (req, res, next) => {
   try {
-    await AuthService.logout(req.token, req.user.userId);
+    await AuthService.logout(req.user.userId);
     setAccessCookie(res, null);
     setRefreshCookie(res, null);
     sendSuccess(res, null, 'Đăng xuất thành công');

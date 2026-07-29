@@ -41,7 +41,7 @@ export const banUser = async (id, changedBy) => {
     error.status = 400;
     throw error;
   }
-  await userModel.updateUserStatus(id, 'banned', changedBy);
+  await userModel.updateUserStatus(id, 'banned');
   await refreshTokenModel.revokeAllByUserId(user.id);
   return true;
 };

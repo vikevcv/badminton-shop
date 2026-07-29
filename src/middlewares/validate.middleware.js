@@ -70,18 +70,11 @@ export const validate = (schema) => {
 
     for (const [field, fieldRules] of Object.entries(schema.fields)) {
       const value = source[field];
-
-      for (const rule of fieldRules) {
-        if (typeof rule === 'function') {
-          const error = rule(field, value);
+      for (const [ruleName, ...args] of fieldRules) {
+        if (rules[ruleName]) {
+          const displayName = args.length > 0 ? args[0] : field;
+          const error = rules[ruleName](displayName, value, ...args.slice(1));
           if (error) errors.push(error);
-        } else if (Array.isArray(rule)) {
-          const [ruleName, ...args] = rule;
-          if (rules[ruleName]) {
-            const displayField = args.length > 0 ? args[0] : field;
-            const error = rules[ruleName](displayField, value, ...args.slice(1));
-            if (error) errors.push(error);
-          }
         }
       }
     }
