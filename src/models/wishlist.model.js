@@ -2,7 +2,7 @@ import pool from '../config/database.js';
 
 export const findByUser = async (userId) => {
   const [rows] = await pool.query(
-    `SELECT w.id, w.product_id, w.created_at,
+    `SELECT w.id, w.product_id,
             p.name, p.slug,
             MIN(pv.price) AS price,
             pi.image_url
@@ -11,7 +11,7 @@ export const findByUser = async (userId) => {
      LEFT JOIN product_variants pv ON p.id = pv.product_id AND pv.status = 'active' AND pv.deleted_at IS NULL
      LEFT JOIN product_images pi ON p.id = pi.product_id AND pi.is_thumbnail = 1
       WHERE w.user_id = ? AND w.deleted_at IS NULL
-     GROUP BY w.id, w.product_id, w.created_at, p.name, p.slug, pi.image_url
+     GROUP BY w.id, w.product_id, p.name, p.slug, pi.image_url
      ORDER BY w.created_at DESC`,
     [userId]
   );

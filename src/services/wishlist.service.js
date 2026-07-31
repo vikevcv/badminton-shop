@@ -9,9 +9,7 @@ export const getWishlist = async (userId) => {
     name: item.name,
     slug: item.slug,
     price: parseFloat(item.price),
-    formattedPrice: new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.price || 0),
     imageUrl: item.image_url || '/images/default-racket.png',
-    createdAt: item.created_at,
   }));
 };
 
