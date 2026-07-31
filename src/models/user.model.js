@@ -42,34 +42,28 @@ export const updatePasswordByEmail = async (email, hashedPassword) => {
   await pool.execute(`UPDATE users SET password = ? WHERE email = ?`, [hashedPassword, email]);
 };
 
-export const searchCustomers = async (keyword, page = 1, limit = 20) => {
-  const offset = (page - 1) * limit;
-  const where = ["role = 'customer'"];
-  const params = [];
-
-  if (keyword) {
-    where.push(`(full_name LIKE ? OR email LIKE ? OR phone LIKE ?)`);
-    const kw = `%${keyword}%`;
-    params.push(kw, kw, kw);
-  }
-
-  const whereClause = `WHERE ${where.join(' AND ')}`;
-
-  const [countResult] = await pool.query(
-    `SELECT COUNT(*) AS total FROM users ${whereClause}`, params
+export const countCustomers = async (whereClause, params) => {
+  const [rows] = await pool.query(
+    `SELECT COUNT(*) AS total
+     FROM users
+     ${whereClause}`,
+    params
   );
-  const total = countResult[0].total;
 
+  return rows[0].total;
+};
+export const searchCustomers = async (whereClause, params, limit, offset) => {
   const [rows] = await pool.query(
     `SELECT id, full_name, email, phone, status, created_at
-     FROM users ${whereClause}
+     FROM users
+     ${whereClause}
      ORDER BY created_at DESC
      LIMIT ? OFFSET ?`,
-    [...params, Number(limit), Number(offset)]
+    [...params, limit, offset]
   );
-  return { customers: rows, total };
-};
 
+  return rows;
+};
 export const findAllUsers = async ({ role, status, keyword, page, limit }) => {
   const offset = (page - 1) * limit;
   const where = [];

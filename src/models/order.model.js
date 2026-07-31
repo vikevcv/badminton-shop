@@ -23,21 +23,36 @@ export const createOrderItem = async (orderId, variantId, quantity, unitPrice, t
     [orderId, variantId, quantity, unitPrice, totalPrice]
   );
 };
-
-export const findByUserId = async (userId, page = 1, limit = 10) => {
-  const offset = (page - 1) * limit;
-
-  const [countResult] = await pool.query(
-    `SELECT COUNT(*) AS total FROM orders WHERE user_id = ?`,
+export const countByUserId = async (userId) => {
+  const [rows] = await pool.query(
+    `SELECT COUNT(*) AS total
+     FROM orders
+     WHERE user_id = ?`,
     [userId]
   );
-  const total = countResult[0].total;
 
+  return rows[0].total;
+};
+export const findByUserId = async (userId, limit, offset) => {
   const [rows] = await pool.query(
-    `SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-    [userId, Number(limit), Number(offset)]
+    `SELECT
+        id,
+        user_id,
+        order_code,
+        subtotal,
+        discount_amount,
+        shipping_fee,
+        final_amount,
+        status,
+        created_at
+     FROM orders
+     WHERE user_id = ?
+     ORDER BY created_at DESC
+     LIMIT ? OFFSET ?`,
+    [userId, limit, offset]
   );
-  return { orders: rows, total };
+
+  return rows;
 };
 
 export const findAll = async (page = 1, limit = 20, filters = {}) => {

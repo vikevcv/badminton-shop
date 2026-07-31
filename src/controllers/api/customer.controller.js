@@ -4,7 +4,8 @@ import { sendSuccess } from '../../helpers/response.helper.js';
 export const getProfile = async (req, res, next) => {
   try {
     const profile = await customerService.getProfile(req.user.userId);
-    sendSuccess(res, profile);
+    if(!profile) return sendSuccess(res, profile, 'Tài khoản chưa cập nhật thông tin.');
+    return sendSuccess(res, profile);
   } catch (error) {
     next(error);
   }
