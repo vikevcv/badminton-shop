@@ -32,14 +32,36 @@ export const rules = {
   },
 
   inRange: (value, min, max) => {
+    if (value === undefined || value === null || value === '') return null;
     const num = Number(value);
     if (isNaN(num) || num < min || num > max) return `phải từ ${min} đến ${max}`;
     return null;
   },
 
   positiveInt: (value) => {
+    if (value === undefined || value === null || value === '') return null;
     const num = Number(value);
     if (isNaN(num) || !Number.isInteger(num) || num < 1) return 'phải là số nguyên dương';
+    return null;
+  },
+
+  maxValue: (value, max) => {
+    if (value === undefined || value === null || value === '') return null;
+    const num = Number(value);
+    if (isNaN(num) || num > max) return `không được quá ${max}`;
+    return null;
+  },
+
+  date: (value) => {
+    if (value === undefined || value === null || value === '') return null;
+    if (isNaN(new Date(value).getTime())) return 'không hợp lệ (VD: 2024-01-01)';
+    return null;
+  },
+
+  nonNegativeInt: (value) => {
+    if (value === undefined || value === null || value === '') return null;
+    const num = Number(value);
+    if (isNaN(num) || !Number.isInteger(num) || num < 0) return 'phải là số nguyên không âm';
     return null;
   },
 
@@ -52,7 +74,10 @@ export const rules = {
 export const validate = (schema) => {
   return (req, res, next) => {
     const errors = [];
-    const source = schema.source === 'body' ? req.body : req.query;
+    const source =
+      schema.source === 'body' ? req.body
+      : schema.source === 'params' ? req.params
+      : req.query;
 
     for (const [field, config] of Object.entries(schema.fields)) {
       const value = source[field];

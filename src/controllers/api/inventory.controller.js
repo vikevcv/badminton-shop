@@ -10,7 +10,7 @@ export const getAllInventory = async (req, res, next) => {
       lowStock: req.query.lowStock || undefined
     };
     const result = await inventoryService.getAllInventory(page, limit, filters);
-    sendSuccess(res, result.items, null, { pagination: { page, limit, totalItems: result.total, totalPages: Math.ceil(result.total / limit) } });
+    sendSuccess(res, result.items, null, { pagination: result.pagination });
   } catch (error) {
     next(error);
   }
@@ -31,13 +31,13 @@ export const getTransactions = async (req, res, next) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const filters = {
-      variant_id: req.query.variant_id || null,
-      type: req.query.type || null,
-      fromDate: req.query.fromDate || null,
-      toDate: req.query.toDate || null
+      variant_id: req.query.variant_id,
+      type: req.query.type,
+      fromDate: req.query.fromDate,
+      toDate: req.query.toDate
     };
     const result = await inventoryService.getTransactionHistory(page, limit, filters);
-    sendSuccess(res, result.transactions, null, { pagination: { page, limit, totalItems: result.total, totalPages: Math.ceil(result.total / limit) } });
+    sendSuccess(res, result.data, null, { pagination: result.pagination});
   } catch (error) {
     next(error);
   }
