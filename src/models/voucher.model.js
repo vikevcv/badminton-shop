@@ -1,6 +1,13 @@
 import pool from '../config/database.js';
 
-export const findAll = async () => {
+export const findAll = async ({ displayDeleted = false, displayInactive = false } = {}) => {
+  if (displayDeleted || displayInactive) {
+    const [rows] = await pool.query(
+      'SELECT * FROM vouchers ORDER BY created_at DESC'
+    );
+    return rows;
+  }
+
   const [rows] = await pool.query(
     `SELECT code, discount_type, discount_value, min_order_value, max_discount_amount,
             usage_limit, used_count, start_date, end_date, status
@@ -40,13 +47,6 @@ export const findByCodeAdmin = async (code) => {
   return rows[0];
 };
 
-export const findAllAdmin = async () => {
-  const [rows] = await pool.query(
-    'SELECT * FROM vouchers WHERE deleted_at IS NULL ORDER BY created_at DESC'
-  );
-  return rows;
-};
-
 export const create = async (data) => {
   const [result] = await pool.execute(
     `INSERT INTO vouchers (code, discount_type, discount_value, min_order_value, max_discount_amount, usage_limit, start_date, end_date, status)
@@ -77,7 +77,7 @@ export const update = async (id, data) => {
 
 export const softDelete = async (id) => {
   const [result] = await pool.execute(
-    "UPDATE vouchers SET deleted_at = NOW(), status = 'inactive' WHERE id = ? AND deleted_at IS NULL",
+    "UPDATE vouchers SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL",
     [id]
   );
   return result.affectedRows > 0;

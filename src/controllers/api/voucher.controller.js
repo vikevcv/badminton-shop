@@ -3,36 +3,26 @@ import { sendSuccess } from '../../helpers/response.helper.js';
 
 export const getAllVouchers = async (req, res, next) => {
   try {
-    const vouchers = await voucherService.getAllVouchers();
+    const canViewHidden = ['admin', 'staff'].includes(req.user?.role);
+    const filter = {
+      displayDeleted: canViewHidden && req.query.display_deleted === 'true',
+      displayInactive: canViewHidden && req.query.display_inactive === 'true'
+    };
+    const vouchers = await voucherService.getAllVouchers(filter);
     sendSuccess(res, vouchers);
   } catch (error) {
     next(error);
   }
 };
 
-export const applyVoucher = async (req, res, next) => {
+export const validateVoucher = async (req, res, next) => {
   try {
     const { code, subtotal } = req.body;
-    const result = await voucherService.applyVoucher(code, subtotal);
+    const result = await voucherService.validateVoucher(code, subtotal);
     sendSuccess(res, result);
   } catch (error) {
     next(error);
   }
-};
-
-export const cancelVoucher = async (req, res, next) => {
-  try {
-    sendSuccess(res, null, 'Đã hủy áp dụng mã giảm giá');
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const getAllVouchersAdmin = async (req, res, next) => {
-  try {
-    const vouchers = await voucherService.getAllVouchersAdmin();
-    sendSuccess(res, vouchers);
-  } catch (error) { next(error); }
 };
 
 export const getVoucherDetail = async (req, res, next) => {

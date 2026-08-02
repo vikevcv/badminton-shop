@@ -4834,10 +4834,10 @@
           ]
         },
         {
-          "name": "Apply Voucher (auth)",
+          "name": "Validate Voucher (auth)",
           "request": {
             "method": "POST",
-            "url": "{{baseUrl}}/api/vouchers/apply",
+            "url": "{{baseUrl}}/api/vouchers/validate",
             "header": [
               {
                 "key": "Authorization",
@@ -4866,7 +4866,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"code\": \"GIAM10\",\n    \"discount_type\": \"percent\",\n    \"discount_value\": \"10\",\n    \"discount_amount\": 50000,\n    \"max_discount_amount\": \"100000\",\n    \"min_order_value\": \"200000\"\n  }\n}"
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"voucherId\": 1,\n    \"discountType\": \"percent\",\n    \"discountValue\": 10,\n    \"discountAmount\": 50000,\n    \"finalAmount\": 450000\n  }\n}"
             },
             {
               "name": "Không có token",
@@ -4927,53 +4927,10 @@
           ]
         },
         {
-          "name": "Cancel Voucher (auth)",
-          "request": {
-            "method": "POST",
-            "url": "{{baseUrl}}/api/vouchers/cancel",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ]
-          },
-          "response": [
-            {
-              "name": "Thành công",
-              "originalRequest": null,
-              "status": "OK",
-              "code": 200,
-              "_postman_previewlanguage": "JSON",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json"
-                }
-              ],
-              "body": "{\n  \"success\": true,\n  \"data\": null,\n  \"message\": \"Đã hủy áp dụng mã giảm giá\"\n}"
-            },
-            {
-              "name": "Không có token",
-              "originalRequest": null,
-              "status": "Unauthorized",
-              "code": 401,
-              "_postman_previewlanguage": "JSON",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json"
-                }
-              ],
-              "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Vui lòng đăng nhập để truy cập tài nguyên này!\",\n  \"errors\": []\n}"
-            }
-          ]
-        },
-        {
           "name": "Get All Vouchers (admin)",
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/api/vouchers/admin",
+            "url": "{{baseUrl}}/api/vouchers?display_inactive=true&display_deleted=true",
             "header": [
               {
                 "key": "Authorization",
@@ -5016,7 +4973,7 @@
           "name": "Get Voucher By Code (admin)",
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/api/vouchers/admin/GIAM10",
+            "url": "{{baseUrl}}/api/vouchers/GIAM10",
             "header": [
               {
                 "key": "Authorization",
@@ -5073,7 +5030,7 @@
           "name": "Create Voucher (admin)",
           "request": {
             "method": "POST",
-            "url": "{{baseUrl}}/api/vouchers/admin",
+            "url": "{{baseUrl}}/api/vouchers",
             "header": [
               {
                 "key": "Authorization",
@@ -5138,7 +5095,7 @@
           "name": "Update Voucher (admin)",
           "request": {
             "method": "PUT",
-            "url": "{{baseUrl}}/api/vouchers/admin/GIAM20",
+            "url": "{{baseUrl}}/api/vouchers/GIAM20",
             "header": [
               {
                 "key": "Authorization",
@@ -5203,7 +5160,7 @@
           "name": "Delete Voucher (admin)",
           "request": {
             "method": "DELETE",
-            "url": "{{baseUrl}}/api/vouchers/admin/GIAM20",
+            "url": "{{baseUrl}}/api/vouchers/GIAM20",
             "header": [
               {
                 "key": "Authorization",

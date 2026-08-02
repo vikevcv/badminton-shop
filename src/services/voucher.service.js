@@ -42,21 +42,12 @@ export const validateVoucher = async (code, subtotal) => {
   }
 
   return {
-    voucher,
-    discount: {
-      code: voucher.code,
-      discount_type: voucher.discount_type,
-      discount_value: voucher.discount_value,
-      discount_amount: discount,
-      max_discount_amount: voucher.max_discount_amount,
-      min_order_value: voucher.min_order_value
-    }
+    voucherId: voucher.id,
+    discountType: voucher.discount_type,
+    discountValue: Number(voucher.discount_value),
+    discountAmount: discount,
+    finalAmount: Math.max(0, subtotal - discount)
   };
-};
-
-export const applyVoucher = async (code, subtotal) => {
-  const { discount } = await validateVoucher(code, subtotal);
-  return discount;
 };
 
 export const getVoucherDetail = async (code) => {
@@ -87,13 +78,21 @@ export const updateVoucher = async (code, data) => {
     error.status = 404;
     throw error;
   }
+  if (data.code && data.code !== voucher.code) {
+    const existing = await voucherModel.findByCodeAdmin(data.code);
+    if (existing) {
+      const error = new Error('Mã giảm giá đã tồn tại');
+      error.status = 400;
+      throw error;
+    }
+  }
   await voucherModel.update(voucher.id, data);
   return true;
 };
 
 export const deleteVoucher = async (code) => {
   const voucher = await voucherModel.findByCodeAdmin(code);
-  if (!voucher) {
+  if (!voucher || voucher.deleted_at !== null) {
     const error = new Error('Không tìm thấy mã giảm giá');
     error.status = 404;
     throw error;
@@ -102,10 +101,6 @@ export const deleteVoucher = async (code) => {
   return true;
 };
 
-export const getAllVouchersAdmin = async () => {
-  return await voucherModel.findAllAdmin();
-};
-
-export const getAllVouchers = async () => {
-  return await voucherModel.findAll();
+export const getAllVouchers = async ({ displayDeleted = false, displayInactive = false } = {}) => {
+  return await voucherModel.findAll({ displayDeleted, displayInactive });
 };
