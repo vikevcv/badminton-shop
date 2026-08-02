@@ -2,9 +2,12 @@ import pool from '../config/database.js';
 import * as paymentModel from '../models/payment.model.js';
 import * as orderModel from '../models/order.model.js';
 import { VALID_TRANSITIONS, STATUS_LABELS, rollbackOrderResources } from './order.service.js';
+import crypto from 'crypto';
 
 const VALID_CALLBACK_STATUSES = ['success', 'failed', 'expired', 'refunded'];
-
+const generatePaymentCode = () => {
+  return 'PAY' + Date.now() + crypto.randomBytes(4).toString('hex').toUpperCase();
+};
 export const createPayment = async (userId, data) => {
   const { order_code, provider, method } = data;
 
@@ -24,14 +27,14 @@ export const createPayment = async (userId, data) => {
   if (provider === 'manual') {
     const existingPending = await paymentModel.findPendingByOrderId(order.id);
     if (existingPending) {
-      return {
-        payment_code: existingPending.payment_code,
-        status: 'success',
-        message: 'Thanh toán khi nhận hàng thành công'
-      };
+      const error = new Error(
+        `Đơn đang chờ thanh toán online (mã ${existingPending.payment_code}), vui lòng hoàn tất hoặc đợi hết hạn rồi thử lại`
+      );
+      error.status = 400;
+      throw error;
     }
 
-    const paymentCode = paymentModel.generatePaymentCode();
+    const paymentCode = generatePaymentCode();
     const paymentId = await paymentModel.create({
       order_id: order.id,
       payment_code: paymentCode,

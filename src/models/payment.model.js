@@ -1,11 +1,5 @@
 import pool from '../config/database.js';
 
-import crypto from 'crypto';
-
-export const generatePaymentCode = () => {
-  return 'PAY' + Date.now() + crypto.randomBytes(4).toString('hex').toUpperCase();
-};
-
 export const create = async (data) => {
   const { order_id, payment_code, provider, method, amount, status } = data;
   const [result] = await pool.execute(
@@ -51,6 +45,14 @@ export const findByOrderId = async (orderId) => {
 export const findPendingByOrderId = async (orderId) => {
   const [rows] = await pool.query(
     "SELECT * FROM payments WHERE order_id = ? AND status = 'pending' ORDER BY created_at DESC LIMIT 1",
+    [orderId]
+  );
+  return rows[0];
+};
+
+export const findSuccessByOrderId = async (orderId) => {
+  const [rows] = await pool.query(
+    "SELECT * FROM payments WHERE order_id = ? AND status = 'success' ORDER BY created_at DESC LIMIT 1",
     [orderId]
   );
   return rows[0];

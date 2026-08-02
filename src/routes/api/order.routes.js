@@ -28,7 +28,15 @@ router.get('/:code/payments', verifyToken, orderController.getPaymentHistory);
 router.post('/:code/cancel', verifyToken, orderController.cancelOrder);
 
 // PUT (backward compat)
-router.put('/:code/status', verifyToken, requireAdminOrStaff, orderController.updateOrderStatus);
+router.put('/:code/status', verifyToken, requireAdminOrStaff, validate({
+  source: 'body',
+  fields: {
+    status: {
+      name: 'Trạng thái đơn hàng',
+      rules: [['required'], ['oneOf', ['pending_payment', 'confirmed', 'preparing', 'shipping', 'completed', 'cancelled', 'refunded', 'payment_failed']]]
+    }
+  }
+}), orderController.updateOrderStatus);
 router.put('/:code/tracking', verifyToken, requireAdminOrStaff, orderController.updateTracking);
 
 export default router;

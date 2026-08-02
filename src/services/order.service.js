@@ -4,6 +4,7 @@ import * as orderModel from '../models/order.model.js';
 import * as cartModel from '../models/cart.model.js';
 import * as voucherModel from '../models/voucher.model.js';
 import * as inventoryModel from '../models/inventory.model.js';
+import * as paymentModel from '../models/payment.model.js';
 import * as customerProfileModel from '../models/customer-profile.model.js';
 import * as addressService from './address.service.js';
 import { formatVND } from '../helpers/currency.helper.js';
@@ -366,6 +367,15 @@ export const updateOrderStatus = async (orderCode, newStatus, changedBy = null, 
       );
       error.status = 400;
       throw error;
+    }
+
+    if (newStatus === 'confirmed' && order.status === 'pending_payment') {
+      const paid = await paymentModel.findSuccessByOrderId(order.id);
+      if (!paid) {
+        const error = new Error('Đơn hàng chưa được thanh toán, không thể xác nhận');
+        error.status = 400;
+        throw error;
+      }
     }
 
     await orderModel.updateStatusWithHistory(order.id, order.status, newStatus, changedBy, note, conn);

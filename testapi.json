@@ -4241,6 +4241,34 @@
                 }
               ],
               "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Không thể chuyển trạng thái từ \\\"Đã hủy\\\" sang \\\"Đã xác nhận\\\"\",\n  \"errors\": []\n}"
+            },
+            {
+              "name": "Chưa thanh toán",
+              "originalRequest": null,
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Đơn hàng chưa được thanh toán, không thể xác nhận\",\n  \"errors\": []\n}"
+            },
+            {
+              "name": "Trạng thái không hợp lệ",
+              "originalRequest": null,
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Dữ liệu không hợp lệ\",\n  \"errors\": [\n    \"Trạng thái đơn hàng phải là một trong: pending_payment, confirmed, preparing, shipping, completed, cancelled, refunded, payment_failed\"\n  ]\n}"
             }
           ]
         },
@@ -4497,6 +4525,34 @@
                 }
               ],
               "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Đơn hàng không ở trạng thái chờ thanh toán\",\n  \"errors\": []\n}"
+            },
+            {
+              "name": "Dữ liệu không hợp lệ",
+              "originalRequest": null,
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Dữ liệu không hợp lệ\",\n  \"errors\": [\n    \"Mã đơn hàng không được để trống\",\n    \"Cổng thanh toán phải là một trong: momo, vnpay, zalopay, paypal, stripe, manual\",\n    \"Phương thức thanh toán phải là một trong: wallet, bank_transfer, credit_card, cash\"\n  ]\n}"
+            },
+            {
+              "name": "Đang chờ thanh toán online",
+              "originalRequest": null,
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Đơn đang chờ thanh toán online (mã PAY1720000000DEF), vui lòng hoàn tất hoặc đợi hết hạn rồi thử lại\",\n  \"errors\": []\n}"
             }
           ]
         },
