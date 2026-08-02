@@ -24,76 +24,84 @@ export const createOrderItem = async (orderId, variantId, quantity, unitPrice, t
   );
 };
 export const countByUserId = async (userId) => {
+    const [rows] = await pool.query(
+        `
+        SELECT COUNT(*) AS total
+        FROM orders
+        WHERE user_id = ?
+        `,
+        [userId]
+    );
+
+    return rows[0].total;
+};
+
+export const findByUserId = async (
+    userId,
+    limit,
+    offset
+) => {
+    const [rows] = await pool.query(
+        `
+        SELECT
+            id,
+            user_id,
+            order_code,
+            subtotal,
+            discount_amount,
+            shipping_fee,
+            final_amount,
+            status,
+            created_at
+        FROM orders
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        LIMIT ? OFFSET ?
+        `,
+        [userId, limit, offset]
+    );
+
+    return rows;
+};
+
+export const countAll = async (
+  whereClause,
+  params
+) => {
   const [rows] = await pool.query(
-    `SELECT COUNT(*) AS total
-     FROM orders
-     WHERE user_id = ?`,
-    [userId]
+    `
+    SELECT COUNT(*) AS total
+    FROM orders o
+    ${whereClause}
+    `,
+    params
   );
 
   return rows[0].total;
 };
-export const findByUserId = async (userId, limit, offset) => {
+export const findAll = async (
+  whereClause,
+  params,
+  limit,
+  offset
+) => {
   const [rows] = await pool.query(
-    `SELECT
-        id,
-        user_id,
-        order_code,
-        subtotal,
-        discount_amount,
-        shipping_fee,
-        final_amount,
-        status,
-        created_at
-     FROM orders
-     WHERE user_id = ?
-     ORDER BY created_at DESC
-     LIMIT ? OFFSET ?`,
-    [userId, limit, offset]
+    `
+    SELECT
+        o.*,
+        u.full_name AS user_name,
+        u.email AS user_email
+    FROM orders o
+    LEFT JOIN users u
+        ON o.user_id = u.id
+    ${whereClause}
+    ORDER BY o.created_at DESC
+    LIMIT ? OFFSET ?
+    `,
+    [...params, limit, offset]
   );
 
   return rows;
-};
-
-export const findAll = async (page = 1, limit = 20, filters = {}) => {
-  const offset = (page - 1) * limit;
-  const where = [];
-  const params = [];
-
-  if (filters.status) {
-    where.push(`o.status = ?`);
-    params.push(filters.status);
-  }
-  if (filters.keyword) {
-    where.push(`(o.order_code LIKE ? OR o.receiver_name LIKE ? OR o.receiver_phone LIKE ?)`);
-    const kw = `%${filters.keyword}%`;
-    params.push(kw, kw, kw);
-  }
-  if (filters.fromDate) {
-    where.push(`o.created_at >= ?`);
-    params.push(filters.fromDate);
-  }
-  if (filters.toDate) {
-    where.push(`o.created_at <= ?`);
-    params.push(filters.toDate);
-  }
-
-  const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
-
-  const [countResult] = await pool.query(
-    `SELECT COUNT(*) AS total FROM orders o ${whereClause}`, params
-  );
-  const total = countResult[0].total;
-
-  const [rows] = await pool.query(
-    `SELECT o.*, u.full_name AS user_name, u.email AS user_email
-     FROM orders o
-     LEFT JOIN users u ON o.user_id = u.id
-     ${whereClause}
-     ORDER BY o.created_at DESC LIMIT ? OFFSET ?`,
-    [...params, Number(limit), Number(offset)]
-  );
-  return { orders: rows, total };
 };
 
 export const findByOrderCode = async (orderCode, userId = null) => {

@@ -30,7 +30,7 @@ export const getAllOrders = async (req, res, next) => {
     };
     const result = await orderService.getAllOrders(page, limit, filters);
     sendSuccess(res, result.orders, null, {
-      pagination: { page, limit, totalItems: result.total, totalPages: Math.ceil(result.total / limit) }
+      pagination: result.pagination 
     });
   } catch (error) { next(error); }
 };

@@ -84,23 +84,15 @@ export const getCustomerOrders = async (
     throw error;
   }
 
-  const offset = (page - 1) * limit;
-
-  const total = await orderModel.countByUserId(userId);
-
-  const orders = await orderModel.findByUserId(
-    userId,
-    limit,
-    offset
-  );
+  const result = await orderModel.findByUserId(userId, page, limit);
 
   return {
-    orders,
+    orders: result.orders,
     pagination: {
       page,
       limit,
-      totalItems: total,
-      totalPages: Math.ceil(total / limit)
+      totalItems: result.total,
+      totalPages: Math.ceil(result.total / limit)
     }
   };
 };

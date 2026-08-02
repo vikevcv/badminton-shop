@@ -2,6 +2,26 @@ import * as addressModel from '../models/address.model.js';
 
 const isStaffOrAdmin = (role) => role === 'admin' || role === 'staff';
 
+export const getShippingAddress = async (userId, shippingAddressId) => {
+  let address;
+  if (shippingAddressId) {
+    address = await addressModel.findById(shippingAddressId);
+    if (!address || address.user_id !== userId) {
+      const error = new Error('Không tìm thấy địa chỉ');
+      error.status = 404;
+      throw error;
+    }
+  } else {
+    address = await addressModel.findDefaultByUserId(userId);
+  }
+  if (!address) {
+    const error = new Error('Vui lòng cập nhật địa chỉ giao hàng');
+    error.status = 400;
+    throw error;
+  }
+  return address;
+};
+
 export const getAddresses = async (userId, role, filterUserId = null, includeDeleted = false) => {
   if (isStaffOrAdmin(role)) {
     if (filterUserId) {

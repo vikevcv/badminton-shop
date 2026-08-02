@@ -2736,7 +2736,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"cart_id\": 1,\n    \"items\": [\n      {\n        \"id\": 1,\n        \"variant_id\": 1,\n        \"product_name\": \"Vợt Yonex Nanoflare 1000\",\n        \"sku\": \"YN-NF1000-BK\",\n        \"price\": \"2500000\",\n        \"formattedPrice\": \"2.500.000đ\",\n        \"quantity\": 2,\n        \"total\": 5000000,\n        \"formattedTotal\": \"5.000.000đ\",\n        \"image_url\": \"/images/products/vo-cau-long/voi-yonex-nanoflare-1000/0.png\",\n        \"metadata\": null\n      }\n    ],\n    \"total_items\": 2,\n    \"total_amount\": 5000000,\n    \"formatted_total_amount\": \"5.000.000đ\"\n  }\n}"
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"cart_id\": 1,\n    \"items\": [\n      {\n        \"id\": 1,\n        \"variant_id\": 1,\n        \"product_name\": \"Vợt Yonex Nanoflare 1000\",\n        \"sku\": \"YN-NF1000-BK\",\n        \"price\": \"2500000\",\n        \"formattedPrice\": \"2.500.000đ\",\n        \"quantity\": 2,\n        \"total\": 5000000,\n        \"formattedTotal\": \"5.000.000đ\",\n        \"image_url\": \"/images/products/vo-cau-long/voi-yonex-nanoflare-1000/0.png\"\n      }\n    ],\n    \"total_items\": 2,\n    \"total_amount\": 5000000,\n    \"formatted_total_amount\": \"5.000.000đ\"\n  }\n}"
             },
             {
               "name": "Không có token",
@@ -3671,7 +3671,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"receiver_name\": \"Nguyen Van A\",\n  \"receiver_phone\": \"0912345678\",\n  \"receiver_address\": \"123 Nguyen Hue, Q1, TP.HCM\",\n  \"shipping_fee\": 30000,\n  \"voucher_code\": \"GIAM10\",\n  \"items\": [\n    1,\n    2\n  ],\n  \"note\": \"Giao giờ hành chính\"\n}"
+              "raw": "{\n  \"shippingAddressId\": 1,\n  \"voucherCode\": \"GIAM10\",\n  \"note\": \"Giao giờ hành chính\"\n}"
             }
           },
           "response": [

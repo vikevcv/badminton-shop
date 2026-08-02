@@ -21,6 +21,14 @@ export const findAll = async (includeDeleted = false) => {
 };
 
 
+export const findDefaultByUserId = async (userId) => {
+  const [rows] = await pool.query(
+    `SELECT * FROM user_addresses WHERE user_id = ? AND is_default = 1 AND deleted_at IS NULL LIMIT 1`,
+    [userId]
+  );
+  return rows[0];
+};
+
 export const findById = async (id, includeDeleted = false) => {
   let query = `SELECT * FROM user_addresses WHERE id = ?`;
   if (!includeDeleted) query += ` AND deleted_at IS NULL`;

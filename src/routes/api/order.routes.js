@@ -13,9 +13,9 @@ router.get('/all', verifyToken, requireAdminOrStaff, orderController.getAllOrder
 router.post('/', verifyToken, validate({
   source: 'body',
   fields: {
-    receiver_name: { name: 'Tên người nhận', rules: [['required']] },
-    receiver_phone: { name: 'Số điện thoại', rules: [['required']] },
-    receiver_address: { name: 'Địa chỉ nhận hàng', rules: [['required']] }
+    shippingAddressId: { name: 'ID địa chỉ giao hàng', rules: [['positiveInt']] },
+    voucherCode: { name: 'Mã giảm giá', rules: [['maxLength', 50]] },
+    note: { name: 'Ghi chú', rules: [['maxLength', 500]] }
   }
 }), orderController.createOrder);
 

@@ -5,7 +5,10 @@ import * as cartModel from '../models/cart.model.js';
 import * as voucherModel from '../models/voucher.model.js';
 import * as inventoryModel from '../models/inventory.model.js';
 import * as customerProfileModel from '../models/customer-profile.model.js';
+import * as addressService from './address.service.js';
 import { formatVND } from '../helpers/currency.helper.js';
+
+const SHIPPING_FEE = 30000;
 
 export const VALID_TRANSITIONS = {
   'pending_payment': ['confirmed', 'cancelled', 'payment_failed'],
@@ -34,10 +37,11 @@ export const generateOrderCode = () => {
 };
 
 export const createOrder = async (userId, data) => {
-  const { shipping_fee = 0, voucher_code, note, items: selectedItems } = data;
+  const { shippingAddressId, voucherCode, note } = data;
 
-  const cart = await cartModel.findOrCreateCart(userId);
-  const cartItems = await cartModel.getCartItems(cart.id);
+  const cart = await cartModel.findByUserId(userId);
+  const cartId = cart ? cart.id : await cartModel.create(userId);
+  const cartItems = await cartModel.getCartItems(cartId);
 
   if (!cartItems.length) {
     const error = new Error('Giỏ hàng trống');
@@ -45,19 +49,9 @@ export const createOrder = async (userId, data) => {
     throw error;
   }
 
-  let itemsToOrder = cartItems;
-  if (selectedItems && selectedItems.length > 0) {
-    itemsToOrder = cartItems.filter(item =>
-      selectedItems.includes(item.variant_id)
-    );
-    if (!itemsToOrder.length) {
-      const error = new Error('Không có sản phẩm nào được chọn để thanh toán');
-      error.status = 400;
-      throw error;
-    }
-  }
+  const address = await addressService.getShippingAddress(userId, shippingAddressId);
 
-  for (const item of itemsToOrder) {
+  for (const item of cartItems) {
     if (item.variant_status !== 'active') {
       const error = new Error(`Sản phẩm "${item.product_name}" đã ngừng kinh doanh`);
       error.status = 400;
@@ -65,7 +59,7 @@ export const createOrder = async (userId, data) => {
     }
   }
 
-  const subtotal = itemsToOrder.reduce((sum, item) =>
+  const subtotal = cartItems.reduce((sum, item) =>
     sum + item.quantity * parseFloat(item.price), 0
   );
 
@@ -79,8 +73,8 @@ export const createOrder = async (userId, data) => {
 
       let lockedVoucher = null;
 
-      if (voucher_code) {
-        lockedVoucher = await voucherModel.lockByCode(voucher_code, conn);
+      if (voucherCode) {
+        lockedVoucher = await voucherModel.lockByCode(voucherCode, conn);
         if (!lockedVoucher) {
           const error = new Error('Mã giảm giá không hợp lệ');
           error.status = 400;
@@ -110,7 +104,7 @@ export const createOrder = async (userId, data) => {
         }
       }
 
-      for (const item of itemsToOrder) {
+      for (const item of cartItems) {
         const lockedInventory = await inventoryModel.findByVariantIdForUpdate(item.variant_id, conn);
         if (!lockedInventory || lockedInventory.quantity < item.quantity) {
           const error = new Error(`Sản phẩm "${item.product_name}" không đủ hàng`);
@@ -136,7 +130,7 @@ export const createOrder = async (userId, data) => {
         }
       }
 
-      const finalAmount = subtotal - discountAmount + shipping_fee;
+      const finalAmount = subtotal - discountAmount + SHIPPING_FEE;
 
       const orderId = await orderModel.createOrder({
         user_id: userId,
@@ -144,15 +138,15 @@ export const createOrder = async (userId, data) => {
         order_code: orderCode,
         subtotal,
         discount_amount: discountAmount,
-        shipping_fee,
+        shipping_fee: SHIPPING_FEE,
         final_amount: Math.max(finalAmount, 0),
-        receiver_name: data.receiver_name,
-        receiver_phone: data.receiver_phone,
-        receiver_address: data.receiver_address,
+        receiver_name: address.receiver_name,
+        receiver_phone: address.receiver_phone,
+        receiver_address: address.address,
         note: note || null
       }, conn);
 
-      for (const item of itemsToOrder) {
+      for (const item of cartItems) {
         const totalPrice = item.quantity * parseFloat(item.price);
         await orderModel.createOrderItem(
           orderId, item.variant_id, item.quantity,
@@ -174,7 +168,7 @@ export const createOrder = async (userId, data) => {
           created_by: userId
         }, conn);
 
-        await cartModel.removeItem(item.id, cart.id, conn);
+        await cartModel.removeItem(item.id, cartId, conn);
       }
 
       if (voucherId) {
@@ -198,19 +192,86 @@ export const createOrder = async (userId, data) => {
 };
 
 export const getOrders = async (userId, page, limit) => {
-  const result = await orderModel.findByUserId(userId, page, limit);
-  return {
-    orders: result.orders,
-    pagination: {
-      page, limit,
-      totalItems: result.total,
-      totalPages: Math.ceil(result.total / limit)
-    }
-  };
+    const offset = (page - 1) * limit;
+
+    const total = await orderModel.countByUserId(
+        userId
+    );
+
+    const orders = await orderModel.findByUserId(
+        userId,
+        limit,
+        offset
+    );
+
+    return {
+        orders,
+        pagination: {
+            page,
+            limit,
+            totalItems: total,
+            totalPages: Math.ceil(total / limit)
+        }
+    };
 };
 
-export const getAllOrders = async (page, limit, filters) => {
-  return await orderModel.findAll(page, limit, filters);
+export const getAllOrders = async ( page, limit, filters = {} ) => {
+  const offset = (page - 1) * limit;
+
+  const where = [];
+  const params = [];
+
+  if (filters.status) {
+    where.push('o.status = ?');
+    params.push(filters.status);
+  }
+
+  if (filters.keyword) {
+    where.push(
+      '(o.order_code LIKE ? OR o.receiver_name LIKE ? OR o.receiver_phone LIKE ?)'
+    );
+
+    const kw = `%${filters.keyword}%`;
+
+    params.push(kw, kw, kw);
+  }
+
+  if (filters.fromDate) {
+    where.push('o.created_at >= ?');
+    params.push(filters.fromDate);
+  }
+
+  if (filters.toDate) {
+    where.push('o.created_at <= ?');
+    params.push(filters.toDate);
+  }
+
+  const whereClause =
+    where.length > 0
+      ? `WHERE ${where.join(' AND ')}`
+      : '';
+
+  const total = await orderModel.countAll(
+    whereClause,
+    params
+  );
+
+  const orders = await orderModel.findAll(
+    whereClause,
+    params,
+    limit,
+    offset
+  );
+
+  return {
+    orders,
+    pagination: {
+      page,
+      limit,
+      totalItems: total,
+      totalPages: Math.ceil(total / limit)
+    }
+  };
 };
 
 export const getOrderDetail = async (orderCode, userId) => {
