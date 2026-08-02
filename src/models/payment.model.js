@@ -1,11 +1,11 @@
 import pool from '../config/database.js';
 
 export const create = async (data) => {
-  const { order_id, payment_code, provider, method, amount, status } = data;
+  const { order_id, payment_code, provider, method, amount, status, gateway_response } = data;
   const [result] = await pool.execute(
-    `INSERT INTO payments (order_id, payment_code, provider, method, amount, status)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [order_id, payment_code, provider, method, amount, status || 'pending']
+    `INSERT INTO payments (order_id, payment_code, provider, method, amount, status, gateway_response)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [order_id, payment_code, provider, method, amount, status || 'pending', gateway_response ? JSON.stringify(gateway_response) : null]
   );
   return result.insertId;
 };
@@ -26,7 +26,7 @@ export const updateStatus = async (id, status, transactionId = null, gatewayResp
   }
   if (gatewayResponse) {
     query += `, gateway_response = ?`;
-    params.push(JSON.stringify(gatewayResponse));
+    params.push(typeof gatewayResponse === 'string' ? gatewayResponse : JSON.stringify(gatewayResponse));
   }
   if (status === 'success') {
     query += `, paid_at = NOW()`;

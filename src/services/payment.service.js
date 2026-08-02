@@ -2,9 +2,11 @@ import pool from '../config/database.js';
 import * as paymentModel from '../models/payment.model.js';
 import * as orderModel from '../models/order.model.js';
 import { VALID_TRANSITIONS, STATUS_LABELS, rollbackOrderResources } from './order.service.js';
+import * as vnpayService from './vnpay.service.js';
 import crypto from 'crypto';
 
 const VALID_CALLBACK_STATUSES = ['success', 'failed', 'expired', 'refunded'];
+const AVAILABLE_PROVIDERS = ['vnpay', 'manual'];
 const generatePaymentCode = () => {
   return 'PAY' + Date.now() + crypto.randomBytes(4).toString('hex').toUpperCase();
 };
@@ -20,6 +22,12 @@ export const createPayment = async (userId, data) => {
 
   if (order.status !== 'pending_payment') {
     const error = new Error('Đơn hàng không ở trạng thái chờ thanh toán');
+    error.status = 400;
+    throw error;
+  }
+
+  if (!AVAILABLE_PROVIDERS.includes(provider)) {
+    const error = new Error(`Cổng thanh toán ${provider} chưa được hỗ trợ (Coming soon)`);
     error.status = 400;
     throw error;
   }
@@ -62,39 +70,52 @@ export const createPayment = async (userId, data) => {
     };
   }
 
-  const existingPending = await paymentModel.findPendingByOrderId(order.id);
-  if (existingPending) {
-    return {
-      payment_code: existingPending.payment_code,
+  if (provider === 'vnpay') {
+    const existingPending = await paymentModel.findPendingByOrderId(order.id);
+    if (existingPending && existingPending.provider === 'vnpay') {
+      const stored = existingPending.gateway_response ? JSON.parse(existingPending.gateway_response) : null;
+      return {
+        payment_code: existingPending.payment_code,
+        status: 'pending',
+        redirect_url: stored?.payUrl
+      };
+    }
+
+    const paymentCode = generatePaymentCode();
+    const vnpayRes = vnpayService.createPayment({
+      amount: order.final_amount,
+      orderInfo: `Thanh toan don hang ${order.order_code}`,
+      txnRef: paymentCode,
+      ipAddr: data.ip_addr || '127.0.0.1'
+    });
+
+    await paymentModel.create({
+      order_id: order.id,
+      payment_code: paymentCode,
+      provider,
+      method,
+      amount: order.final_amount,
       status: 'pending',
-      redirect_url: `https://sandbox.${provider}.vn/payment?code=${existingPending.payment_code}&amount=${order.final_amount}`
+      gateway_response: { payUrl: vnpayRes.payUrl }
+    });
+
+    return {
+      payment_code: paymentCode,
+      status: 'pending',
+      redirect_url: vnpayRes.payUrl
     };
   }
-
-  const paymentCode = paymentModel.generatePaymentCode();
-  await paymentModel.create({
-    order_id: order.id,
-    payment_code: paymentCode,
-    provider,
-    method,
-    amount: order.final_amount,
-    status: 'pending'
-  });
-
-  return {
-    payment_code: paymentCode,
-    status: 'pending',
-    redirect_url: `https://sandbox.${provider}.vn/payment?code=${paymentCode}&amount=${order.final_amount}`
-  };
 };
 
-export const handleCallback = async (data, headers = {}) => {
-  const secret = headers['x-webhook-secret'];
-  const expectedSecret = process.env.PAYMENT_CALLBACK_SECRET;
-  if (expectedSecret && secret !== expectedSecret) {
-    const error = new Error('Webhook secret không hợp lệ');
-    error.status = 401;
-    throw error;
+export const handleCallback = async (data, headers = {}, options = {}) => {
+  if (!options.skipSecret) {
+    const secret = headers['x-webhook-secret'];
+    const expectedSecret = process.env.PAYMENT_CALLBACK_SECRET;
+    if (expectedSecret && secret !== expectedSecret) {
+      const error = new Error('Webhook secret không hợp lệ');
+      error.status = 401;
+      throw error;
+    }
   }
 
   const { payment_code, transaction_id, status, gateway_response } = data;
@@ -122,7 +143,7 @@ export const handleCallback = async (data, headers = {}) => {
 
     await paymentModel.updateStatus(
       payment.id, status, transaction_id || null,
-      gateway_response ? JSON.stringify(gateway_response) : null, conn
+      gateway_response || null, conn
     );
 
     const order = await orderModel.findByIdForUpdate(payment.order_id, conn);
@@ -195,4 +216,96 @@ export const getPaymentsByOrderCode = async (orderCode, userId = null) => {
     throw error;
   }
   return await paymentModel.findByOrderId(order.id);
+};
+
+export const handleVnpayCallback = async (payload) => {
+  if (!vnpayService.verifyReturnSignature(payload)) {
+    const error = new Error('Chữ ký VNPay không hợp lệ');
+    error.rspCode = '97';
+    throw error;
+  }
+
+  const payment = await paymentModel.findByPaymentCode(payload.vnp_TxnRef);
+  if (!payment) {
+    const error = new Error('Không tìm thấy giao dịch');
+    error.rspCode = '01';
+    throw error;
+  }
+
+  if (payment.provider !== 'vnpay') {
+    const error = new Error('Thông tin giao dịch không hợp lệ');
+    error.rspCode = '01';
+    throw error;
+  }
+
+  if (Number(payload.vnp_Amount) !== Math.round(Number(payment.amount) * 100)) {
+    const error = new Error('Số tiền giao dịch không khớp');
+    error.rspCode = '04';
+    throw error;
+  }
+
+  if (payment.status === 'success' || payment.status === 'refunded') {
+    return { RspCode: '02', Message: 'Transaction already processed' };
+  }
+
+  const status = vnpayService.normalizeStatus(payload.vnp_TransactionStatus || payload.vnp_ResponseCode);
+
+  await handleCallback(
+    {
+      payment_code: payload.vnp_TxnRef,
+      transaction_id: String(payload.vnp_TransactionNo || ''),
+      status,
+      gateway_response: payload
+    },
+    {},
+    { skipSecret: true }
+  );
+
+  return { RspCode: '00', Message: 'success' };
+};
+
+export const getPaymentStatus = async (code, userId = null) => {
+  const payment = await paymentModel.findByPaymentCode(code);
+  if (!payment) {
+    const error = new Error('Không tìm thấy giao dịch');
+    error.status = 404;
+    throw error;
+  }
+
+  const order = await orderModel.findById(payment.order_id);
+  if (!order) {
+    const error = new Error('Không tìm thấy đơn hàng');
+    error.status = 404;
+    throw error;
+  }
+
+  if (userId !== null && order.user_id !== userId) {
+    const error = new Error('Bạn không có quyền truy cập giao dịch này');
+    error.status = 403;
+    throw error;
+  }
+
+  let gateway = null;
+  if (payment.provider === 'vnpay') {
+    gateway = await vnpayService.queryTransaction({ txnRef: payment.payment_code, amount: payment.amount });
+
+    if (payment.status === 'pending' && gateway.vnp_TransactionStatus) {
+      const status = vnpayService.normalizeStatus(gateway.vnp_TransactionStatus);
+      if (status === 'success' || status === 'failed') {
+        await handleCallback(
+          {
+            payment_code: payment.payment_code,
+            transaction_id: String(gateway.vnp_TransactionNo || ''),
+            status,
+            gateway_response: gateway
+          },
+          {},
+          { skipSecret: true }
+        );
+      }
+    }
+  }
+
+  const refreshed = await paymentModel.findByPaymentCode(code);
+  return { payment: refreshed, gateway };
 };

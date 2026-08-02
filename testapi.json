@@ -4482,7 +4482,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"payment_code\": \"PAY1720000000DEF\",\n    \"status\": \"pending\",\n    \"redirect_url\": \"https://sandbox.momo.vn/payment?code=PAY1720000000DEF&amount=4530000\"\n  },\n  \"message\": \"Tạo thanh toán thành công\"\n}"
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"payment_code\": \"PAY1720000000DEF\",\n    \"status\": \"pending\",\n    \"redirect_url\": \"https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?vnp_Version=2.1.0&vnp_Command=pay&vnp_TmnCode=XXXXXX&vnp_Amount=453000000&vnp_TxnRef=PAY1720000000DEF&vnp_SecureHash=abc...\"\n  },\n  \"message\": \"Tạo thanh toán thành công\"\n}"
             },
             {
               "name": "Không có token",
@@ -4538,7 +4538,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Dữ liệu không hợp lệ\",\n  \"errors\": [\n    \"Mã đơn hàng không được để trống\",\n    \"Cổng thanh toán phải là một trong: momo, vnpay, zalopay, paypal, stripe, manual\",\n    \"Phương thức thanh toán phải là một trong: wallet, bank_transfer, credit_card, cash\"\n  ]\n}"
+              "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Dữ liệu không hợp lệ\",\n  \"errors\": [\n    \"Mã đơn hàng không được để trống\",\n    \"Cổng thanh toán phải là một trong: vnpay, zalopay, paypal, stripe, manual\",\n    \"Phương thức thanh toán phải là một trong: wallet, bank_transfer, credit_card, cash\"\n  ]\n}"
             },
             {
               "name": "Đang chờ thanh toán online",
@@ -4636,24 +4636,10 @@
           ]
         },
         {
-          "name": "Payment Webhook (server)",
+          "name": "VNPay IPN (server)",
           "request": {
-            "method": "POST",
-            "url": "{{baseUrl}}/api/webhooks/momo",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "x-webhook-secret",
-                "value": "{{webhookSecret}}"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"payment_code\": \"PAYXXXXXXXXXX\",\n  \"transaction_id\": \"TXN123456\",\n  \"status\": \"success\",\n  \"gateway_response\": {}\n}"
-            }
+            "method": "GET",
+            "url": "{{baseUrl}}/api/webhooks/vnpay"
           },
           "response": [
             {
@@ -4668,13 +4654,13 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"success\": true,\n  \"data\": null,\n  \"message\": \"Xử lý callback thành công\"\n}"
+              "body": "{\n  \"RspCode\": \"00\",\n  \"Message\": \"success\"\n}"
             },
             {
-              "name": "Thiếu dữ liệu",
+              "name": "Chữ ký không hợp lệ",
               "originalRequest": null,
-              "status": "Bad Request",
-              "code": 400,
+              "status": "OK",
+              "code": 200,
               "_postman_previewlanguage": "JSON",
               "header": [
                 {
@@ -4682,7 +4668,112 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Webhook secret không hợp lệ\",\n  \"errors\": []\n}"
+              "body": "{\n  \"RspCode\": \"97\",\n  \"Message\": \"Fail checksum\"\n}"
+            },
+            {
+              "name": "Không tìm thấy",
+              "originalRequest": null,
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"RspCode\": \"01\",\n  \"Message\": \"Không tìm thấy giao dịch\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const hashSecret = pm.environment.get('vnpHashSecret') || 'YOUR_VNP_HASH_SECRET';",
+                  "const baseUrl = pm.collectionVariables.get('baseUrl') || pm.environment.get('baseUrl') || 'http://localhost:3000';",
+                  "const params = {",
+                  "  vnp_TmnCode: 'YOUR_VNP_TMN_CODE',",
+                  "  vnp_Amount: '453000000',",
+                  "  vnp_BankCode: 'NCB',",
+                  "  vnp_BankTranNo: 'VNP14226112',",
+                  "  vnp_CardType: 'ATM',",
+                  "  vnp_OrderInfo: 'Thanh toan don hang ORDXXXXXXXXXX',",
+                  "  vnp_PayDate: '20260802103015',",
+                  "  vnp_ResponseCode: '00',",
+                  "  vnp_TransactionNo: '140123456',",
+                  "  vnp_TransactionStatus: '00',",
+                  "  vnp_TxnRef: 'PAYXXXXXXXXXX',",
+                  "  vnp_SecureHashType: 'SHA512'",
+                  "};",
+                  "const excluded = ['vnp_SecureHash', 'vnp_SecureHashType'];",
+                  "const raw = Object.keys(params)",
+                  "  .filter(k => !excluded.includes(k))",
+                  "  .sort()",
+                  "  .map(k => `${k}=${encodeURIComponent(params[k]).replace(/%20/g, '+')}`)",
+                  "  .join('&');",
+                  "const signature = CryptoJS.HmacSHA512(raw, hashSecret).toString(CryptoJS.enc.Hex);",
+                  "params.vnp_SecureHash = signature;",
+                  "const qs = Object.entries(params)",
+                  "  .map(([k, v]) => `${k}=${encodeURIComponent(v).replace(/%20/g, '+')}`)",
+                  "  .join('&');",
+                  "pm.request.url = `${baseUrl}/api/webhooks/vnpay?${qs}`;",
+                  "console.log('VNPay IPN signature:', signature);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('VNPay IPN returns RspCode 00', () => pm.response.to.have.jsonBody('RspCode', '00'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Payment Status (auth)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/payments/PAYXXXXXXXXXX/status",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "response": [
+            {
+              "name": "Thành công",
+              "originalRequest": null,
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"payment\": {\n      \"id\": 1,\n      \"order_id\": 1,\n      \"payment_code\": \"PAY1720000000DEF\",\n      \"provider\": \"vnpay\",\n      \"method\": \"bank_transfer\",\n      \"amount\": 4530000,\n      \"status\": \"success\",\n      \"transaction_id\": \"140123456\",\n      \"paid_at\": \"2026-08-02T10:00:00.000Z\"\n    },\n    \"gateway\": {\n      \"vnp_ResponseCode\": \"00\",\n      \"vnp_TransactionStatus\": \"00\",\n      \"vnp_TxnRef\": \"PAY1720000000DEF\",\n      \"vnp_Amount\": 453000000,\n      \"vnp_TransactionNo\": \"140123456\"\n    }\n  },\n  \"message\": \"Lấy trạng thái thanh toán thành công\"\n}"
+            },
+            {
+              "name": "Không có token",
+              "originalRequest": null,
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Vui lòng đăng nhập để truy cập tài nguyên này!\",\n  \"errors\": []\n}"
             },
             {
               "name": "Không tìm thấy",
@@ -4697,6 +4788,20 @@
                 }
               ],
               "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Không tìm thấy giao dịch\",\n  \"errors\": []\n}"
+            },
+            {
+              "name": "Không có quyền",
+              "originalRequest": null,
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Bạn không có quyền truy cập giao dịch này\",\n  \"errors\": []\n}"
             }
           ]
         }

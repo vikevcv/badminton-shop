@@ -3,6 +3,6 @@ import * as paymentController from '../controllers/api/payment.controller.js';
 
 const router = express.Router();
 
-router.post('/:provider', paymentController.handleCallback);
+router.get('/vnpay', paymentController.handleVnpayIpn);
 
 export default router;

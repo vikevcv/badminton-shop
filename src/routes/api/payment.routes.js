@@ -23,6 +23,6 @@ router.post('/', verifyToken, validate({
   }
 }), paymentController.createPayment);
 
-router.post('/callback', paymentController.handleCallback);
+router.get('/:code/status', verifyToken, paymentController.getPaymentStatus);
 
 export default router;
