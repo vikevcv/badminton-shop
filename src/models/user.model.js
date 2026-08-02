@@ -64,35 +64,40 @@ export const searchCustomers = async (whereClause, params, limit, offset) => {
 
   return rows;
 };
-export const findAllUsers = async ({ role, status, keyword, page, limit }) => {
-  const offset = (page - 1) * limit;
-  const where = [];
-  const params = [];
-
-  if (role) { where.push(`role = ?`); params.push(role); }
-  if (status) { where.push(`u.status = ?`); params.push(status); }
-  if (keyword) {
-    where.push(`(u.full_name LIKE ? OR u.email LIKE ? OR u.phone LIKE ?)`);
-    const kw = `%${keyword}%`;
-    params.push(kw, kw, kw);
-  }
-
-  const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
-
-  const [countResult] = await pool.query(
-    `SELECT COUNT(*) AS total FROM users u ${whereClause}`, params
+export const countAll = async (whereClause, params) => {
+  const [result] = await pool.query(
+    `
+      SELECT COUNT(*) AS total
+      FROM users u
+      ${whereClause}
+    `,
+    params
   );
-  const total = countResult[0].total;
 
+  return result[0].total;
+};
+export const findAll = async ( whereClause, params, limit, offset ) => {
   const [rows] = await pool.query(
-    `SELECT u.id, u.full_name, u.email, u.phone, u.role, u.status,
-            u.email_verified_at, u.created_at, u.updated_at
-     FROM users u ${whereClause}
-     ORDER BY u.created_at DESC
-     LIMIT ? OFFSET ?`,
-    [...params, Number(limit), Number(offset)]
+    `
+      SELECT
+        u.id,
+        u.full_name,
+        u.email,
+        u.phone,
+        u.role,
+        u.status,
+        u.email_verified_at,
+        u.created_at,
+        u.updated_at
+      FROM users u
+      ${whereClause}
+      ORDER BY u.created_at DESC
+      LIMIT ? OFFSET ?
+    `,
+    [...params, limit, offset]
   );
-  return { users: rows, total };
+
+  return rows;
 };
 
 export const findUserByIdAdmin = async (id) => {

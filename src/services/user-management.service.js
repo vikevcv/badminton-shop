@@ -1,15 +1,57 @@
 import * as userModel from '../models/user.model.js';
 import * as refreshTokenModel from '../models/refresh-token.model.js';
 
-export const getAllUsers = async ({ role, status, keyword, page, limit }) => {
-  const result = await userModel.findAllUsers({ role, status, keyword, page, limit });
+export const getAllUsers = async ({role, status, keyword, page, limit}) => {
+  const offset = (page - 1) * limit;
+
+  const where = [];
+  const params = [];
+
+  if (role) {
+    where.push('u.role = ?');
+    params.push(role);
+  }
+
+  if (status) {
+    where.push('u.status = ?');
+    params.push(status);
+  }
+
+  if (keyword) {
+    where.push(
+      '(u.full_name LIKE ? OR u.email LIKE ? OR u.phone LIKE ?)'
+    );
+
+    const kw = `%${keyword}%`;
+
+    params.push(kw, kw, kw);
+  }
+
+  const whereClause =
+    where.length > 0
+      ? `WHERE ${where.join(' AND ')}`
+      : '';
+
+  const total = await userModel.countAll(
+    whereClause,
+    params
+  );
+
+  const users = await userModel.findAll(
+    whereClause,
+    params,
+    limit,
+    offset
+  );
+
   return {
-    users: result.users,
-    total: result.total,
+    users,
+    total,
     pagination: {
-      page, limit,
-      totalItems: result.total,
-      totalPages: Math.ceil(result.total / limit)
+      page,
+      limit,
+      totalItems: total,
+      totalPages: Math.ceil(total / limit)
     }
   };
 };
@@ -24,7 +66,7 @@ export const getUserDetail = async (id) => {
   return user;
 };
 
-export const banUser = async (id, changedBy) => {
+export const banUser = async (id) => {
   const user = await userModel.findUserById(id);
   if (!user) {
     const error = new Error('Không tìm thấy người dùng');

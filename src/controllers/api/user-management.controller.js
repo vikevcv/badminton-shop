@@ -24,7 +24,7 @@ export const getUserDetail = async (req, res, next) => {
 
 export const banUser = async (req, res, next) => {
   try {
-    await userManagementService.banUser(req.params.id, req.user.userId);
+    await userManagementService.banUser(req.params.id);
     sendSuccess(res, null, 'Khóa tài khoản thành công');
   } catch (error) { next(error); }
 };
