@@ -1,29 +1,43 @@
 import pool from '../config/database.js';
 
-export const findByProductSlug = async (slug, page = 1, limit = 10) => {
-  const offset = (page - 1) * limit;
-
-  const [countResult] = await pool.query(
-    `SELECT COUNT(*) AS total FROM product_reviews pr
-     INNER JOIN products p ON pr.product_id = p.id
-      WHERE p.slug = ? AND pr.deleted_at IS NULL`,
+export const countByProductSlug = async (slug) => {
+  const [result] = await pool.query(
+    `
+      SELECT COUNT(*) AS total
+      FROM product_reviews pr
+      INNER JOIN products p
+        ON pr.product_id = p.id
+      WHERE p.slug = ?
+        AND pr.deleted_at IS NULL
+    `,
     [slug]
   );
-  const total = countResult[0].total;
 
+  return result[0].total;
+};
+export const findByProductSlug = async (slug, limit, offset) => {
   const [rows] = await pool.query(
-    `SELECT pr.id, pr.rating, pr.comment, pr.created_at,
-            u.full_name AS user_name
-     FROM product_reviews pr
-     INNER JOIN products p ON pr.product_id = p.id
-     INNER JOIN users u ON pr.user_id = u.id
-     WHERE p.slug = ? AND pr.deleted_at IS NULL
-     ORDER BY pr.created_at DESC
-     LIMIT ? OFFSET ?`,
-    [slug, Number(limit), Number(offset)]
+    `
+      SELECT
+        pr.id,
+        pr.rating,
+        pr.comment,
+        pr.created_at,
+        u.full_name AS user_name
+      FROM product_reviews pr
+      INNER JOIN products p
+        ON pr.product_id = p.id
+      INNER JOIN users u
+        ON pr.user_id = u.id
+      WHERE p.slug = ?
+        AND pr.deleted_at IS NULL
+      ORDER BY pr.created_at DESC
+      LIMIT ? OFFSET ?
+    `,
+    [slug, limit, offset]
   );
 
-  return { reviews: rows, total };
+  return rows;
 };
 
 export const findByUserAndProduct = async (userId, productId) => {

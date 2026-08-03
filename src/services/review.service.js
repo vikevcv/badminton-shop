@@ -2,17 +2,28 @@ import * as reviewModel from '../models/review.model.js';
 import * as productModel from '../models/product.model.js';
 
 export const getProductReviews = async (productSlug, page, limit) => {
-  const result = await reviewModel.findByProductSlug(productSlug, page, limit);
+  const offset = (page - 1) * limit;
+
+  const total = await reviewModel.countByProductSlug(
+    productSlug
+  );
+
+  const reviews = await reviewModel.findByProductSlug(
+    productSlug,
+    limit,
+    offset
+  );
+
   return {
-    reviews: result.reviews,
+    reviews,
     pagination: {
-      page, limit,
-      totalItems: result.total,
-      totalPages: Math.ceil(result.total / limit)
+      page,
+      limit,
+      totalItems: total,
+      totalPages: Math.ceil(total / limit)
     }
   };
 };
-
 export const addReview = async (userId, productSlug, rating, comment) => {
   const product = await productModel.findProductBySlug(productSlug);
   if (!product) {
