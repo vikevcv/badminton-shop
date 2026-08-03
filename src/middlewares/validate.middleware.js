@@ -65,8 +65,31 @@ export const rules = {
     return null;
   },
 
+  positiveNumber: (value) => {
+    if (value === undefined || value === null || value === '') return null;
+    const num = Number(value);
+    if (isNaN(num) || num <= 0) return 'phải là số dương';
+    return null;
+  },
+
+  nonNegativeNumber: (value) => {
+    if (value === undefined || value === null || value === '') return null;
+    const num = Number(value);
+    if (isNaN(num) || num < 0) return 'phải là số không âm';
+    return null;
+  },
+
+  positiveIntArray: (value) => {
+    if (value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0)) return null;
+    if (!Array.isArray(value) || value.some((item) => !Number.isInteger(Number(item)) || Number(item) < 1)) {
+      return 'phải là mảng số nguyên dương';
+    }
+    return null;
+  },
+
   oneOf: (value, allowed) => {
-    if (!value || !allowed.includes(value)) return `phải là một trong: ${allowed.join(', ')}`;
+    if (value === undefined || value === null || value === '') return null;
+    if (!allowed.includes(value)) return `phải là một trong: ${allowed.join(', ')}`;
     return null;
   }
 };

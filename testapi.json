@@ -2057,6 +2057,127 @@
           ]
         },
         {
+          "name": "Update Product Slug (admin)",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/products/1/slug",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"slug\": \"yonex-astrox-100zz-updated\"\n}"
+            }
+          },
+          "response": [
+            {
+              "name": "Thành công",
+              "originalRequest": null,
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": null,\n  \"message\": \"Cập nhật slug sản phẩm thành công\"\n}"
+            },
+            {
+              "name": "Slug mới giống slug hiện tại",
+              "originalRequest": null,
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Slug mới phải khác slug hiện tại\",\n  \"errors\": []\n}"
+            },
+            {
+              "name": "Slug đã tồn tại",
+              "originalRequest": null,
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Slug đã tồn tại\",\n  \"errors\": []\n}"
+            },
+            {
+              "name": "Thiếu slug",
+              "originalRequest": null,
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Slug là trường bắt buộc\",\n  \"errors\": []\n}"
+            },
+            {
+              "name": "Không có token",
+              "originalRequest": null,
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Vui lòng đăng nhập để truy cập tài nguyên này!\",\n  \"errors\": []\n}"
+            },
+            {
+              "name": "Không có quyền",
+              "originalRequest": null,
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Bạn không có quyền thực hiện hành động này!\",\n  \"errors\": []\n}"
+            },
+            {
+              "name": "Không tìm thấy",
+              "originalRequest": null,
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "JSON",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Không tìm thấy sản phẩm\",\n  \"errors\": []\n}"
+            }
+          ]
+        },
+        {
           "name": "Create Variant (staff, admin)",
           "request": {
             "method": "POST",
@@ -2396,11 +2517,6 @@
                   "key": "is_thumbnail",
                   "value": "true",
                   "type": "text"
-                },
-                {
-                  "key": "variant_id",
-                  "value": "1",
-                  "type": "text"
                 }
               ]
             }
@@ -2495,11 +2611,6 @@
                 {
                   "key": "is_thumbnail",
                   "value": "true",
-                  "type": "text"
-                },
-                {
-                  "key": "variant_id",
-                  "value": "1",
                   "type": "text"
                 }
               ]
@@ -7504,11 +7615,6 @@
                 {
                   "key": "is_thumbnail",
                   "value": "false",
-                  "type": "text"
-                },
-                {
-                  "key": "variant_id",
-                  "value": "",
                   "type": "text"
                 }
               ]

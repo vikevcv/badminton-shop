@@ -192,7 +192,6 @@ CREATE TABLE IF NOT EXISTS product_variant_values (
 CREATE TABLE IF NOT EXISTS product_images (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     product_id BIGINT UNSIGNED NOT NULL,
-    variant_id BIGINT UNSIGNED NULL,
     image_url       VARCHAR(500) NOT NULL,
     is_thumbnail    BOOLEAN NOT NULL DEFAULT FALSE,
     sort_order      INT NOT NULL DEFAULT 0,
@@ -206,11 +205,9 @@ CREATE TABLE IF NOT EXISTS product_images (
     deleted_at      DATETIME NULL,
     deleted_by      BIGINT UNSIGNED NULL,
     INDEX idx_product_image_product (product_id),
-    INDEX idx_product_image_variant (variant_id),
     INDEX idx_product_image_upload_status (upload_status),
     UNIQUE KEY uq_product_thumbnail (product_id, is_thumbnail),
-    CONSTRAINT fk_product_image_product FOREIGN KEY(product_id) REFERENCES products(id),
-    CONSTRAINT fk_product_image_variant FOREIGN KEY(variant_id) REFERENCES product_variants(id)
+    CONSTRAINT fk_product_image_product FOREIGN KEY(product_id) REFERENCES products(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS product_reviews (

@@ -4,7 +4,7 @@ import * as inventoryModel from '../models/inventory.model.js';
 export const getAllInventory = async (page, limit, filters) => {
   const offset = (page - 1) * limit;
 
-  const where = ["pv.status != 'discontinued'"];
+  const where = ["pv.deleted_at IS NULL"];
   const params = [];
 
   if (filters.keyword) {

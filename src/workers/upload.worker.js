@@ -55,5 +55,5 @@ const gracefulShutdown = async () => {
   process.exit(0);
 };
 
-process.on('SIGTERM', gracefulShutdown);
-process.on('SIGINT', gracefulShutdown);
+process.on('SIGTERM', gracefulShutdown); // tính hiệu tắt từ server như docker stop, kill
+process.on('SIGINT', gracefulShutdown); // tính hiệu tắt từ bàn phím như Ctrl+C

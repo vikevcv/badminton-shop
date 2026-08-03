@@ -14,12 +14,10 @@ export const getNewestByCategory = async (req, res, next) => {
 
 export const getAllProducts = async (req, res, next) => {
     try {
-        if (req.query.display_deleted === 'true') {
-          if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'staff')) {
-            const error = new Error('Không có quyền truy cập');
-            error.status = 403;
-            throw error;
-          }
+        const canViewHidden = ['admin', 'staff'].includes(req.user?.role);
+        const displayDeleted = canViewHidden && req.query.display_deleted === 'true';
+
+        if (displayDeleted) {
           const result = await productService.getAllProductsAdmin(req.query);
           return sendSuccess(res, result);
         }
@@ -33,18 +31,6 @@ export const getAllProducts = async (req, res, next) => {
 export const getProductDetail = async (req, res, next) => {
   try {
     const { slug } = req.params;
-    if (req.query.display_deleted === 'true') {
-      if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'staff')) {
-        const error = new Error('Không có quyền truy cập');
-        error.status = 403;
-        throw error;
-      }
-      const id = parseInt(slug);
-      if (!isNaN(id)) {
-        const product = await productService.getProductAdmin(id);
-        return sendSuccess(res, product, 'Lấy chi tiết sản phẩm thành công');
-      }
-    }
     const product = await productService.getProductDetail(slug);
     sendSuccess(res, product, 'Lấy chi tiết sản phẩm thành công');
   } catch (error) {
@@ -77,6 +63,16 @@ export const updateProduct = async (req, res, next) => {
   try {
     await productService.updateProduct(parseInt(req.params.id), req.body);
     sendSuccess(res, null, 'Cập nhật sản phẩm thành công');
+  } catch (error) {
+    next(error);
+  }
+};
+export const updateProductSlug = async (req, res, next) => {
+  try {
+    const { slug } = req.body;
+    const productId = parseInt(req.params.id);
+    await productService.updateProductSlug(slug, productId);
+    sendSuccess(res, null, 'Cập nhật slug sản phẩm thành công');
   } catch (error) {
     next(error);
   }
@@ -145,7 +141,7 @@ export const addImage = async (req, res, next) => {
       throw error;
     }
     const result = await productService.addImage(
-      parseInt(req.params.id), file, req.body.is_thumbnail, req.body.variant_id || null
+      parseInt(req.params.id), file, req.body.is_thumbnail
     );
     sendSuccess(res, result, 'Thêm ảnh thành công', {}, 201);
   } catch (error) {

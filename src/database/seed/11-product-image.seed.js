@@ -46,16 +46,14 @@ export default async function seedProductImages(pool) {
         INSERT INTO product_images
         (
           product_id,
-          variant_id,
           image_url,
           is_thumbnail,
           sort_order
         )
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?)
         `,
         [
           product.id,
-          null,
           image.url,
           image.thumbnail,
           image.sortOrder,
