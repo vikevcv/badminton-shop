@@ -21,7 +21,7 @@ Nền tảng thương mại điện tử full-stack cho thiết bị cầu lông
 - **Danh mục & Thương hiệu** — CRUD, soft delete/restore
 - **Giỏ hàng** — Thêm, sửa số lượng, xóa, xóa tất cả (an toàn với race condition)
 - **Đơn hàng** — Tạo, luồng trạng thái (`pending_payment → confirmed → preparing → shipping → completed`), hủy, tracking, lịch sử trạng thái
-- **Thanh toán** — Thủ công (tiền mặt/chuyển khoản) + webhook callback
+- **Thanh toán** — Thủ công (tiền mặt/chuyển khoản) + VNPay (sandbox) có IPN webhook callback
 - **Voucher** — CRUD, áp dụng/hủy, giảm theo % hoặc số tiền
 - **Đánh giá** — CRUD, soft delete (admin có thể xóa bất kỳ)
 - **Yêu thích** — Thêm/xóa, soft delete, phát hiện trùng lặp
@@ -59,6 +59,8 @@ Sao chép `.env` và cấu hình:
 | `APP_URL` | Ví dụ: `http://localhost:3000` |
 | `JWT_ACCESS_EXPIRES` | Thời gian sống của access token (mặc định `30m`) |
 | `JWT_REFRESH_EXPIRES` | Thời gian sống của refresh token (mặc định `7d`) |
+| `PAYMENT_CALLBACK_SECRET` | Chuỗi bí mật cho webhook thanh toán |
+| `REFRESH_COOKIE_SECRET` | Chuỗi bí mật ký cookie auth HttpOnly |
 | `CLOUDINARY_CLOUD_NAME` | Tên cloud Cloudinary |
 | `CLOUDINARY_API_KEY` | API key Cloudinary |
 | `CLOUDINARY_API_SECRET` | API secret Cloudinary |
@@ -69,14 +71,27 @@ Sao chép `.env` và cấu hình:
 | `UPLOAD_MAX_RETRY` | Số lần retry tối đa khi upload lỗi (mặc định `3`) |
 | `UPLOAD_BACKOFF_DELAY` | Thời gian chờ giữa các lần retry (ms, mặc định `2000`) |
 | `UPLOAD_CONCURRENCY` | Số worker chạy song song (mặc định `5`) |
+| `VNP_TMN_CODE` | Mã merchant VNPay (sandbox) |
+| `VNP_HASH_SECRET` | Chuỗi bí mật hash VNPay |
+| `VNP_PAY_URL` | URL cổng thanh toán VNPay |
+| `VNP_QUERY_URL` | URL truy vấn giao dịch VNPay |
+| `VNP_RETURN_URL` | URL return VNPay (vd `{APP_URL}/payment/return`) |
+| `VNP_IPN_URL` | URL IPN webhook VNPay (vd `{APP_URL}/api/webhooks/vnpay`) |
 
 ### Database
 
 ```bash
+# Tạo database (chạy 1 lần)
+mysql -u root -p < database/1_createDB.sql
+
+# Tạo bảng (chạy 1 lần)
+mysql -u root -p < database/2_createTable.sql
+
+# Chèn dữ liệu mẫu (100 người dùng, danh mục, thương hiệu, sản phẩm, biến thể, hình ảnh)
 npm run seed
 ```
 
-Tạo bảng và dữ liệu mẫu (100 người dùng, danh mục, thương hiệu, sản phẩm, biến thể, hình ảnh).
+> **Lưu ý**: `npm run seed` chỉ truncate rồi chèn lại dữ liệu mẫu — nó **không** tạo bảng. Phải chạy các script SQL trong `database/` trước.
 
 ### Chạy
 
@@ -116,24 +131,24 @@ http://localhost:3000/api
 | Nhóm       | Endpoints |
 |------------|-----------|
 | Auth       | `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`, `GET /auth/me`, `PUT /auth/me`, `PUT /auth/change-password`, `POST /auth/logout`, `POST /auth/forgot-password`, `POST /auth/reset-password` |
-| Sản phẩm   | `GET /products`, `GET /products/search`, `GET /products/:slug`, `GET /products/newest/:categorySlug`, `POST /products`, `PUT /products/:id`, `DELETE /products/:id`, `PUT /products/:id/restore` |
+| Sản phẩm   | `GET /products`, `GET /products/search`, `GET /products/:slug`, `GET /products/newest/:categorySlug`, `POST /products`, `PUT /products/:id`, `DELETE /products/:id`, `PUT /products/:id/restore`, `PUT /products/:id/slug` |
 | Biến thể   | `POST /products/:id/variants`, `PUT /products/:id/variants/:vid`, `DELETE /products/:id/variants/:vid`, `PUT /products/:id/variants/:vid/restore` |
 | Ảnh SP     | `POST /products/:id/images`, `PUT /products/:id/images/:iid`, `DELETE /products/:id/images/:iid`, `PUT /products/:id/images/:iid/restore` |
 | Danh mục   | `GET /categories`, `GET /categories/:id`, `POST /categories`, `PUT /categories/:id`, `DELETE /categories/:id`, `PUT /categories/:id/restore` |
 | Thương hiệu| `GET /brands`, `GET /brands/:id`, `POST /brands`, `PUT /brands/:id`, `DELETE /brands/:id`, `PUT /brands/:id/restore` |
 | Giỏ hàng   | `GET /cart`, `POST /cart/items`, `PUT /cart/items/:id`, `DELETE /cart/items/:id`, `DELETE /cart` |
-| Đơn hàng   | `POST /orders`, `GET /orders`, `GET /orders/all`, `GET /orders/:code`, `GET /orders/:code/status-history`, `GET /orders/:code/payments`, `PUT /orders/:code/status`, `PUT /orders/:code/tracking` |
+| Đơn hàng   | `POST /orders`, `GET /orders`, `GET /orders/all`, `GET /orders/:code`, `GET /orders/:code/status-history`, `GET /orders/:code/payments`, `POST /orders/:code/cancel`, `PUT /orders/:code/status`, `PUT /orders/:code/tracking` |
 | Địa chỉ    | `GET /addresses`, `GET /addresses/:id`, `POST /addresses`, `PUT /addresses/:id`, `DELETE /addresses/:id`, `PUT /addresses/:id/restore` |
-| Thanh toán  | `POST /payments/manual`, `POST /payments/webhook` |
-| Voucher     | `GET /vouchers`, `GET /vouchers/:id`, `POST /vouchers`, `PUT /vouchers/:id`, `DELETE /vouchers/:id`, `PUT /vouchers/:id/restore` |
+| Thanh toán  | `POST /payments`, `GET /payments/:code/status` |
+| Voucher     | `GET /vouchers`, `POST /vouchers/validate`, `GET /vouchers/:code`, `POST /vouchers`, `PUT /vouchers/:code`, `DELETE /vouchers/:code` |
 | Đánh giá   | `GET /reviews/:productSlug`, `POST /reviews/:productSlug`, `PUT /reviews/:id`, `DELETE /reviews/:id` |
 | Yêu thích  | `GET /wishlist`, `POST /wishlist`, `DELETE /wishlist/:productId` |
 | Banner     | `GET /banners`, `GET /banners/:id`, `POST /banners`, `PUT /banners/:id`, `DELETE /banners/:id`, `PUT /banners/:id/restore` |
-| Kho hàng   | `GET /inventory`, `POST /inventory/adjust`, `GET /inventory/transactions` |
-| Khách hàng | `GET /customers`, `GET /customers/:id`, `PUT /customers/:id/ban`, `PUT /customers/:id/unban` |
+| Kho hàng   | `GET /inventory`, `PUT /inventory/:variantId`, `GET /inventory/transactions` |
+| Khách hàng | `GET /customer`, `GET /customer/profile`, `PUT /customer/profile`, `GET /customer/:id/orders` |
 | Dashboard  | `GET /dashboard` |
-| Users      | `GET /users`, `PUT /users/:id/ban`, `PUT /users/:id/unban`, `PUT /users/:id/role` |
-| Webhooks   | `POST /webhooks/payment` |
+| Users      | `GET /users`, `GET /users/:id`, `PUT /users/:id/ban`, `PUT /users/:id/unban`, `PUT /users/:id/role` |
+| Webhooks   | `GET /webhooks/vnpay` |
 
 ## Cấu trúc thư mục
 

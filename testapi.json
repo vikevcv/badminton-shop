@@ -4668,85 +4668,6 @@
           ]
         },
         {
-          "name": "Payment Callback (internal)",
-          "request": {
-            "method": "POST",
-            "url": "{{baseUrl}}/api/payments/callback",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "x-webhook-secret",
-                "value": "{{webhookSecret}}"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"payment_code\": \"PAYXXXXXXXXXX\",\n  \"transaction_id\": \"TXN123456\",\n  \"status\": \"success\",\n  \"gateway_response\": {}\n}"
-            }
-          },
-          "response": [
-            {
-              "name": "Thành công",
-              "originalRequest": null,
-              "status": "OK",
-              "code": 200,
-              "_postman_previewlanguage": "JSON",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json"
-                }
-              ],
-              "body": "{\n  \"success\": true,\n  \"data\": null,\n  \"message\": \"Xử lý callback thành công\"\n}"
-            },
-            {
-              "name": "Thiếu dữ liệu",
-              "originalRequest": null,
-              "status": "Bad Request",
-              "code": 400,
-              "_postman_previewlanguage": "JSON",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json"
-                }
-              ],
-              "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Webhook secret không hợp lệ\",\n  \"errors\": []\n}"
-            },
-            {
-              "name": "Thiếu dữ liệu",
-              "originalRequest": null,
-              "status": "Bad Request",
-              "code": 400,
-              "_postman_previewlanguage": "JSON",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json"
-                }
-              ],
-              "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Trạng thái thanh toán không hợp lệ\",\n  \"errors\": []\n}"
-            },
-            {
-              "name": "Không tìm thấy",
-              "originalRequest": null,
-              "status": "Not Found",
-              "code": 404,
-              "_postman_previewlanguage": "JSON",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json"
-                }
-              ],
-              "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Không tìm thấy giao dịch\",\n  \"errors\": []\n}"
-            }
-          ]
-        },
-        {
           "name": "VNPay IPN (server)",
           "request": {
             "method": "GET",
@@ -7272,11 +7193,7 @@
                 "key": "Content-Type",
                 "value": "application/json"
               }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"sort_order\": 1\n}"
-            }
+            ]
           },
           "response": [
             {
